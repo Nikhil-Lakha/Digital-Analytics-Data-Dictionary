@@ -1,7 +1,9 @@
 from pathlib import Path
 import pandas as pd
 
-DATA_PATH = Path(__file__).resolve().parents[1] / "data" / "analytics_data_dictionary.xlsx"
+DATA_DIR = Path(__file__).resolve().parents[1] / "data"
+XLSX_PATH = DATA_DIR / "analytics_data_dictionary.xlsx"
+CSV_PATH = DATA_DIR / "analytics_data_dictionary.csv"
 
 REQUIRED_COLUMNS = [
     "Variable Name", "Friendly Name", "Category", "Definition", "Data Type",
@@ -10,9 +12,21 @@ REQUIRED_COLUMNS = [
 ]
 
 
-def load_dictionary(path: Path = DATA_PATH) -> pd.DataFrame:
-    """Load and lightly validate the Variables sheet from the analytics dictionary."""
-    df = pd.read_excel(path, sheet_name="Variables", engine="openpyxl")
+def load_dictionary() -> pd.DataFrame:
+    """Load the master dictionary, preferring Excel and falling back to CSV."""
+    df = None
+
+    if XLSX_PATH.exists():
+        try:
+            df = pd.read_excel(XLSX_PATH, sheet_name="Variables", engine="openpyxl")
+        except Exception:
+            df = None
+
+    if df is None:
+        if not CSV_PATH.exists():
+            raise FileNotFoundError("No analytics dictionary source file was found.")
+        df = pd.read_csv(CSV_PATH)
+
     df.columns = [str(col).strip() for col in df.columns]
 
     missing = [col for col in REQUIRED_COLUMNS if col not in df.columns]
