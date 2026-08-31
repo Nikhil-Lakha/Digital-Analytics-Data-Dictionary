@@ -2,7 +2,7 @@
 
 Central documentation application for the Adobe Analytics Replacement project.
 
-This repository contains a Streamlit application and an Excel-based analytics data dictionary. The application is a documentation and governance layer only; it is **not** part of the live Tealium-to-AWS event flow.
+This repository contains a Streamlit application and analytics dictionary source data. The application is a documentation and governance layer only; it is **not** part of the live Tealium-to-AWS event flow.
 
 ## Architecture
 
@@ -12,7 +12,7 @@ Live analytics flow:
 
 Documentation flow:
 
-`GitHub -> analytics_data_dictionary.xlsx -> Streamlit`
+`GitHub -> analytics dictionary source -> Streamlit`
 
 ## Repository structure
 
@@ -20,7 +20,8 @@ Documentation flow:
 .
 ├── app.py
 ├── data/
-│   └── analytics_data_dictionary.xlsx
+│   ├── analytics_data_dictionary.csv
+│   └── analytics_data_dictionary.xlsx   # preferred master when uploaded
 ├── utils/
 │   ├── __init__.py
 │   └── data_loader.py
@@ -38,7 +39,7 @@ Documentation flow:
 - Summary cards for total variables, AWS variables, PII variables, missing definitions, and active variables
 - Variable detail view
 - Download filtered results as CSV
-- Excel file remains the source of truth
+- Excel is the preferred master source; the included CSV acts as a deployment-safe fallback
 
 ## Run locally
 
@@ -51,9 +52,9 @@ streamlit run app.py
 
 ## Update the dictionary
 
-1. Edit `data/analytics_data_dictionary.xlsx`.
+1. Prefer editing `data/analytics_data_dictionary.xlsx`.
 2. Commit and push the updated file to GitHub.
-3. Streamlit reloads the workbook from the repository on the next app run/reload.
+3. Streamlit reads the Excel workbook when present; otherwise it uses `analytics_data_dictionary.csv`.
 
 ## Deploy to Streamlit Community Cloud
 
