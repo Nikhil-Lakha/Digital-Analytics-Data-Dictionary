@@ -12,7 +12,23 @@ Live analytics flow:
 
 Documentation flow:
 
-`GitHub -> analytics dictionary source -> Streamlit`
+`GitHub -> analytics_data_dictionary.xlsx -> Streamlit`
+
+## Current features
+
+- Search variable name, friendly name, and definition
+- Four filters only: Category, Data Type, Status, and Owner
+- Simplified main table showing:
+  - Variable Name
+  - Friendly Name
+  - Category
+  - Tealium Variable Name
+  - AWS Field Name
+- More Information link opens the complete variable record in a separate browser tab
+- Edit workflow supports both the main fields and all detailed metadata
+- Delete workflow removes the variable from the master Excel workbook
+- Edit and Delete actions commit directly back to `data/analytics_data_dictionary.xlsx` in GitHub
+- Edit/Delete access is protected by an administrator password
 
 ## Repository structure
 
@@ -20,26 +36,31 @@ Documentation flow:
 .
 ├── app.py
 ├── data/
-│   ├── analytics_data_dictionary.csv
-│   └── analytics_data_dictionary.xlsx   # preferred master when uploaded
+│   └── analytics_data_dictionary.xlsx
 ├── utils/
 │   ├── __init__.py
-│   └── data_loader.py
+│   ├── data_loader.py
+│   └── github_store.py
 ├── .streamlit/
-│   └── config.toml
+│   ├── config.toml
+│   └── secrets.toml.example
 ├── requirements.txt
 ├── .gitignore
 └── README.md
 ```
 
-## V1 features
+## GitHub write-back setup
 
-- Search variable name, friendly name, and definition
-- Filters for category, data type, status, PII, Send to AWS, owner, and journey
-- Summary cards for total variables, AWS variables, PII variables, missing definitions, and active variables
-- Variable detail view
-- Download filtered results as CSV
-- Excel is the preferred master source; the included CSV acts as a deployment-safe fallback
+The deployed app needs two secrets. Do **not** commit real secret values to this repository.
+
+```toml
+GITHUB_TOKEN = "your-fine-grained-github-token"
+ADMIN_PASSWORD = "your-admin-password"
+```
+
+Create a fine-grained GitHub Personal Access Token that is restricted to this repository and has repository **Contents: Read and write** permission. Then add both values to the Streamlit Community Cloud app's Secrets settings.
+
+The app uses the GitHub Contents API to download the latest workbook, update or delete the matching row, and commit the modified `.xlsx` file back to the `main` branch.
 
 ## Run locally
 
@@ -50,11 +71,7 @@ pip install -r requirements.txt
 streamlit run app.py
 ```
 
-## Update the dictionary
-
-1. Prefer editing `data/analytics_data_dictionary.xlsx`.
-2. Commit and push the updated file to GitHub.
-3. Streamlit reads the Excel workbook when present; otherwise it uses `analytics_data_dictionary.csv`.
+For local editing, create `.streamlit/secrets.toml` using the same two values shown above. The real `secrets.toml` must never be committed.
 
 ## Deploy to Streamlit Community Cloud
 
@@ -62,17 +79,18 @@ streamlit run app.py
 2. Choose this repository.
 3. Branch: `main`.
 4. Main file path: `app.py`.
-5. Deploy.
+5. Add `GITHUB_TOKEN` and `ADMIN_PASSWORD` under the app's Secrets settings.
+6. Deploy or reboot the app.
 
 ## Future roadmap
 
-- Add/edit variables through the app
+- Add new variables through the app
 - Duplicate validation
 - Missing-definition warnings
-- Change history
+- Change history / audit log
 - Schema versioning
 - Compare dictionary with Tealium mapped variables
 - Compare dictionary with AWS / Glue / Athena schemas
 - Tealium API integration
-- Authentication and roles
+- Role-based authentication
 - Approval workflow
