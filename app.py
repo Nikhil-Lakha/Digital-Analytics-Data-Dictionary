@@ -46,6 +46,33 @@ def get_token() -> str:
         return ""
 
 
+def get_admin_password() -> str:
+    try:
+        return st.secrets["ADMIN_PASSWORD"]
+    except Exception:
+        return ""
+
+
+def require_admin() -> bool:
+    if st.session_state.get("admin_authenticated", False):
+        return True
+
+    configured_password = get_admin_password()
+    if not configured_password:
+        st.warning("Editing is locked until ADMIN_PASSWORD is added to Streamlit Secrets.")
+        return False
+
+    st.info("Editing and deletion are restricted. Enter the administrator password to continue.")
+    entered = st.text_input("Administrator password", type="password", key="admin_password_input")
+    if st.button("Unlock editing", key="unlock_editing"):
+        if entered == configured_password:
+            st.session_state["admin_authenticated"] = True
+            st.rerun()
+        else:
+            st.error("Incorrect administrator password.")
+    return False
+
+
 def esc(value) -> str:
     if pd.isna(value):
         return ""
@@ -149,28 +176,32 @@ if view == "edit":
     header("Edit variable", f"Update both main and detailed information for {variable}")
     st.markdown('<a class="back-link" href="./">← Back to dictionary</a>', unsafe_allow_html=True)
 
+    if not require_admin():
+        st.stop()
     if not get_token():
-        st.warning("Editing is not enabled yet. Add GITHUB_TOKEN to this app's Streamlit Secrets to allow write-back to GitHub.")
+        st.warning("Editing is not enabled yet. Add GITHUB_TOKEN to Streamlit Secrets to allow write-back to GitHub.")
 
     with st.form("edit_variable"):
         st.markdown("### Main information")
         c1, c2 = st.columns(2)
         values = {}
+        category_options = unique_values(df, "Category")
+        datatype_options = unique_values(df, "Data Type")
         with c1:
             values["Variable Name"] = st.text_input("Variable name", value=str(row.get("Variable Name", "")))
             values["Friendly Name"] = st.text_input("Friendly name", value=str(row.get("Friendly Name", "")))
             values["Category"] = st.selectbox(
                 "Category",
-                options=unique_values(df, "Category"),
-                index=max(0, unique_values(df, "Category").index(str(row.get("Category", ""))) if str(row.get("Category", "")) in unique_values(df, "Category") else 0),
+                options=category_options,
+                index=category_options.index(str(row.get("Category", ""))) if str(row.get("Category", "")) in category_options else 0,
             )
         with c2:
             values["Tealium Variable Name"] = st.text_input("Tealium variable name", value=str(row.get("Tealium Variable Name", "")))
             values["AWS Field Name"] = st.text_input("AWS field name", value=str(row.get("AWS Field Name", "")))
             values["Data Type"] = st.selectbox(
                 "Data type",
-                options=unique_values(df, "Data Type"),
-                index=max(0, unique_values(df, "Data Type").index(str(row.get("Data Type", ""))) if str(row.get("Data Type", "")) in unique_values(df, "Data Type") else 0),
+                options=datatype_options,
+                index=datatype_options.index(str(row.get("Data Type", ""))) if str(row.get("Data Type", "")) in datatype_options else 0,
             )
 
         st.markdown("### Detailed information")
@@ -178,9 +209,9 @@ if view == "edit":
         bool_fields = {"Required", "Send to AWS", "Contains PII"}
         already_rendered = {"Variable Name", "Friendly Name", "Category", "Tealium Variable Name", "AWS Field Name", "Data Type"}
 
-        cols = st.columns(2)
+        form_cols = st.columns(2)
         for idx, field in enumerate([c for c in df.columns if c not in already_rendered]):
-            with cols[idx % 2]:
+            with form_cols[idx % 2]:
                 current = row.get(field, "")
                 if field in bool_fields:
                     values[field] = st.selectbox(field, [True, False], index=0 if truthy(current) else 1, key=f"field_{field}")
@@ -217,8 +248,11 @@ if view == "delete":
 
     header("Delete variable", f"Remove {variable} from the analytics dictionary")
     st.markdown('<a class="back-link" href="./">← Back to dictionary</a>', unsafe_allow_html=True)
-    st.warning(f"You are about to permanently delete **{variable} — {row.get('Friendly Name', '')}** from the Excel dictionary in GitHub.")
 
+    if not require_admin():
+        st.stop()
+
+    st.warning(f"You are about to permanently delete **{variable} — {row.get('Friendly Name', '')}** from the Excel dictionary in GitHub.")
     if not get_token():
         st.info("Deletion is disabled until GITHUB_TOKEN is added to Streamlit Secrets.")
 
