@@ -1,8 +1,11 @@
-from io import BytesIO
+import html
+from urllib.parse import quote
+
 import pandas as pd
 import streamlit as st
 
 from utils.data_loader import load_dictionary, unique_values
+from utils.github_store import delete_variable, update_variable
 
 st.set_page_config(
     page_title="Digital Analytics Bible",
@@ -20,15 +23,56 @@ st.markdown(
     .metric-card {background:#fff; border:1px solid #e6e6e6; border-radius:14px; padding:18px 20px; box-shadow:0 1px 2px rgba(0,0,0,.04);}
     .metric-label {font-size:.82rem; color:#666; margin-bottom:4px;}
     .metric-value {font-size:1.6rem; font-weight:800; color:#222;}
-    .detail-box {background:#fafafa; border:1px solid #ececec; border-radius:12px; padding:16px; margin-bottom:12px;}
+    .detail-box {background:#fafafa; border:1px solid #ececec; border-radius:12px; padding:18px; margin-bottom:16px;}
+    .dict-table {width:100%; border-collapse:collapse; margin-top:8px; font-size:.92rem;}
+    .dict-table th {text-align:left; padding:12px 10px; border-bottom:2px solid #e5e5e5; color:#555; font-size:.82rem;}
+    .dict-table td {padding:13px 10px; border-bottom:1px solid #eeeeee; vertical-align:top;}
+    .dict-table tr:hover {background:#fafafa;}
+    .action-link {text-decoration:none; font-weight:650; margin-right:12px; white-space:nowrap;}
+    .more-link {color:#E60000;}
+    .edit-link {color:#333;}
+    .delete-link {color:#a40000;}
+    .back-link {display:inline-block; margin-bottom:16px; text-decoration:none; font-weight:650; color:#E60000;}
     </style>
     """,
     unsafe_allow_html=True,
 )
 
-@st.cache_data(show_spinner=False)
+
+def get_token() -> str:
+    try:
+        return st.secrets["GITHUB_TOKEN"]
+    except Exception:
+        return ""
+
+
+def esc(value) -> str:
+    if pd.isna(value):
+        return ""
+    return html.escape(str(value))
+
+
+def truthy(value) -> bool:
+    return str(value).strip().lower() in {"true", "yes", "1"}
+
+
 def get_data():
-    return load_dictionary()
+    return load_dictionary(get_token() or None)
+
+
+def find_row(frame: pd.DataFrame, variable_name: str):
+    matches = frame[frame["Variable Name"].astype(str) == str(variable_name)]
+    return None if matches.empty else matches.iloc[0]
+
+
+def header(title="Digital Analytics Data Dictionary", subtitle=None):
+    st.markdown('<div class="app-kicker">ADOBE ANALYTICS REPLACEMENT</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="app-title">{html.escape(title)}</div>', unsafe_allow_html=True)
+    st.markdown(
+        f'<div class="app-subtitle">{html.escape(subtitle or "Central reference for analytics variables, Tealium mappings, AWS fields and governance metadata.")}</div>',
+        unsafe_allow_html=True,
+    )
+
 
 try:
     df = get_data()
@@ -36,14 +80,165 @@ except Exception as exc:
     st.error(f"Could not load the analytics dictionary: {exc}")
     st.stop()
 
-st.markdown('<div class="app-kicker">ADOBE ANALYTICS REPLACEMENT</div>', unsafe_allow_html=True)
-st.markdown('<div class="app-title">Digital Analytics Data Dictionary</div>', unsafe_allow_html=True)
-st.markdown(
-    '<div class="app-subtitle">Central reference for analytics variables, Tealium mappings, AWS fields and governance metadata.</div>',
-    unsafe_allow_html=True,
-)
+view = st.query_params.get("view", "list")
+variable = st.query_params.get("variable", "")
 
-# Summary metrics
+# -----------------------------
+# DETAIL VIEW
+# -----------------------------
+if view == "detail":
+    row = find_row(df, variable)
+    if row is None:
+        st.error("That variable could not be found.")
+        st.link_button("Back to dictionary", "./")
+        st.stop()
+
+    header(str(row.get("Friendly Name", variable)), f"Full details for {row.get('Variable Name', '')}")
+    st.markdown('<a class="back-link" href="./">← Back to dictionary</a>', unsafe_allow_html=True)
+
+    main_left, main_right = st.columns(2)
+    with main_left:
+        st.markdown("### Main information")
+        st.markdown(
+            f"""<div class="detail-box">
+            <strong>Variable name</strong><br>{esc(row.get('Variable Name', ''))}<br><br>
+            <strong>Friendly name</strong><br>{esc(row.get('Friendly Name', ''))}<br><br>
+            <strong>Category</strong><br>{esc(row.get('Category', ''))}
+            </div>""",
+            unsafe_allow_html=True,
+        )
+    with main_right:
+        st.markdown("### Implementation")
+        st.markdown(
+            f"""<div class="detail-box">
+            <strong>Tealium variable name</strong><br>{esc(row.get('Tealium Variable Name', ''))}<br><br>
+            <strong>AWS field name</strong><br>{esc(row.get('AWS Field Name', ''))}<br><br>
+            <strong>Data type</strong><br>{esc(row.get('Data Type', ''))}
+            </div>""",
+            unsafe_allow_html=True,
+        )
+
+    st.markdown("### Additional details")
+    hidden_main = {"Variable Name", "Friendly Name", "Category", "Tealium Variable Name", "AWS Field Name"}
+    detail_fields = [c for c in df.columns if c not in hidden_main]
+    left, right = st.columns(2)
+    for idx, field in enumerate(detail_fields):
+        target = left if idx % 2 == 0 else right
+        with target:
+            st.markdown(
+                f'<div class="detail-box"><strong>{html.escape(field)}</strong><br>{esc(row.get(field, "")) or "—"}</div>',
+                unsafe_allow_html=True,
+            )
+
+    e1, e2 = st.columns([1, 5])
+    with e1:
+        st.link_button("Edit variable", f"?view=edit&variable={quote(str(variable))}", use_container_width=True)
+    with e2:
+        st.link_button("Delete variable", f"?view=delete&variable={quote(str(variable))}")
+    st.stop()
+
+# -----------------------------
+# EDIT VIEW
+# -----------------------------
+if view == "edit":
+    row = find_row(df, variable)
+    if row is None:
+        st.error("That variable could not be found.")
+        st.stop()
+
+    header("Edit variable", f"Update both main and detailed information for {variable}")
+    st.markdown('<a class="back-link" href="./">← Back to dictionary</a>', unsafe_allow_html=True)
+
+    if not get_token():
+        st.warning("Editing is not enabled yet. Add GITHUB_TOKEN to this app's Streamlit Secrets to allow write-back to GitHub.")
+
+    with st.form("edit_variable"):
+        st.markdown("### Main information")
+        c1, c2 = st.columns(2)
+        values = {}
+        with c1:
+            values["Variable Name"] = st.text_input("Variable name", value=str(row.get("Variable Name", "")))
+            values["Friendly Name"] = st.text_input("Friendly name", value=str(row.get("Friendly Name", "")))
+            values["Category"] = st.selectbox(
+                "Category",
+                options=unique_values(df, "Category"),
+                index=max(0, unique_values(df, "Category").index(str(row.get("Category", ""))) if str(row.get("Category", "")) in unique_values(df, "Category") else 0),
+            )
+        with c2:
+            values["Tealium Variable Name"] = st.text_input("Tealium variable name", value=str(row.get("Tealium Variable Name", "")))
+            values["AWS Field Name"] = st.text_input("AWS field name", value=str(row.get("AWS Field Name", "")))
+            values["Data Type"] = st.selectbox(
+                "Data type",
+                options=unique_values(df, "Data Type"),
+                index=max(0, unique_values(df, "Data Type").index(str(row.get("Data Type", ""))) if str(row.get("Data Type", "")) in unique_values(df, "Data Type") else 0),
+            )
+
+        st.markdown("### Detailed information")
+        text_area_fields = {"Definition", "Notes", "Allowed Values"}
+        bool_fields = {"Required", "Send to AWS", "Contains PII"}
+        already_rendered = {"Variable Name", "Friendly Name", "Category", "Tealium Variable Name", "AWS Field Name", "Data Type"}
+
+        cols = st.columns(2)
+        for idx, field in enumerate([c for c in df.columns if c not in already_rendered]):
+            with cols[idx % 2]:
+                current = row.get(field, "")
+                if field in bool_fields:
+                    values[field] = st.selectbox(field, [True, False], index=0 if truthy(current) else 1, key=f"field_{field}")
+                elif field == "Status":
+                    options = unique_values(df, "Status")
+                    current_text = str(current)
+                    values[field] = st.selectbox(field, options, index=options.index(current_text) if current_text in options else 0, key=f"field_{field}")
+                elif field in text_area_fields:
+                    values[field] = st.text_area(field, value=str(current), key=f"field_{field}")
+                else:
+                    values[field] = st.text_input(field, value=str(current), key=f"field_{field}")
+
+        submitted = st.form_submit_button("Save changes", type="primary", use_container_width=True, disabled=not bool(get_token()))
+
+    if submitted:
+        try:
+            update_variable(get_token(), variable, values)
+            st.success("Changes saved to the Excel file in GitHub.")
+            st.cache_data.clear()
+            st.query_params.clear()
+            st.rerun()
+        except Exception as exc:
+            st.error(f"Could not save the changes: {exc}")
+    st.stop()
+
+# -----------------------------
+# DELETE VIEW
+# -----------------------------
+if view == "delete":
+    row = find_row(df, variable)
+    if row is None:
+        st.error("That variable could not be found.")
+        st.stop()
+
+    header("Delete variable", f"Remove {variable} from the analytics dictionary")
+    st.markdown('<a class="back-link" href="./">← Back to dictionary</a>', unsafe_allow_html=True)
+    st.warning(f"You are about to permanently delete **{variable} — {row.get('Friendly Name', '')}** from the Excel dictionary in GitHub.")
+
+    if not get_token():
+        st.info("Deletion is disabled until GITHUB_TOKEN is added to Streamlit Secrets.")
+
+    confirm = st.checkbox("I understand that this removes the row from the master Excel file.")
+    if st.button("Delete variable", type="primary", disabled=not (confirm and bool(get_token()))):
+        try:
+            delete_variable(get_token(), variable)
+            st.success("Variable deleted from the Excel file in GitHub.")
+            st.cache_data.clear()
+            st.query_params.clear()
+            st.rerun()
+        except Exception as exc:
+            st.error(f"Could not delete the variable: {exc}")
+    st.stop()
+
+# -----------------------------
+# MAIN LIST VIEW
+# -----------------------------
+header()
+
 missing_definitions = int(df["Definition"].fillna("").astype(str).str.strip().eq("").sum())
 aws_count = int(df["Send to AWS"].astype(str).str.lower().isin(["true", "yes", "1"]).sum())
 pii_count = int(df["Contains PII"].astype(str).str.lower().isin(["true", "yes", "1"]).sum())
@@ -74,18 +269,14 @@ search = st.text_input(
 f1, f2, f3, f4 = st.columns(4)
 with f1:
     category = st.multiselect("Category", unique_values(df, "Category"))
-    owner = st.multiselect("Owner", unique_values(df, "Owner"))
 with f2:
     data_type = st.multiselect("Data type", unique_values(df, "Data Type"))
-    journey = st.multiselect("Journey", unique_values(df, "Journey"))
 with f3:
     status = st.multiselect("Status", unique_values(df, "Status"))
-    pii = st.selectbox("Contains PII", ["All", "Yes", "No"])
 with f4:
-    send_aws = st.selectbox("Send to AWS", ["All", "Yes", "No"])
+    owner = st.multiselect("Owner", unique_values(df, "Owner"))
 
 filtered = df.copy()
-
 if search.strip():
     term = search.strip().lower()
     search_cols = [c for c in ["Variable Name", "Friendly Name", "Definition"] if c in filtered.columns]
@@ -99,81 +290,48 @@ for column, selected in [
     ("Data Type", data_type),
     ("Status", status),
     ("Owner", owner),
-    ("Journey", journey),
 ]:
     if selected:
         filtered = filtered[filtered[column].astype(str).isin(selected)]
 
-
-def apply_boolean_filter(frame, column, selection):
-    if selection == "All":
-        return frame
-    truthy = frame[column].astype(str).str.lower().isin(["true", "yes", "1"])
-    return frame[truthy] if selection == "Yes" else frame[~truthy]
-
-filtered = apply_boolean_filter(filtered, "Contains PII", pii)
-filtered = apply_boolean_filter(filtered, "Send to AWS", send_aws)
-
 st.markdown(f"### Variables ({len(filtered)})")
-preferred_cols = [
-    "Variable Name", "Friendly Name", "Category", "Definition", "Data Type",
-    "Tealium Variable Name", "AWS Field Name", "Send to AWS", "Contains PII", "Status", "Journey"
-]
-display_cols = [c for c in preferred_cols if c in filtered.columns]
-st.dataframe(filtered[display_cols], use_container_width=True, hide_index=True, height=430)
-
-csv_data = filtered.to_csv(index=False).encode("utf-8")
-st.download_button(
-    "Download filtered list",
-    data=csv_data,
-    file_name="filtered_analytics_variables.csv",
-    mime="text/csv",
-)
-
-st.divider()
-st.markdown("### Variable details")
 
 if filtered.empty:
     st.info("No variables match the current filters.")
 else:
-    labels = filtered.apply(
-        lambda r: f"{r.get('Variable Name', '')} — {r.get('Friendly Name', '')}", axis=1
-    ).tolist()
-    selected_label = st.selectbox("Select a variable", labels)
-    row = filtered.iloc[labels.index(selected_label)]
-
-    left, right = st.columns([1.2, 1])
-    with left:
-        st.markdown("#### Definition")
-        st.markdown(
-            f"""<div class="detail-box">
-            <strong>{row.get('Friendly Name', '')}</strong><br><br>
-            {row.get('Definition', '') or '<em>No definition provided</em>'}
-            </div>""",
-            unsafe_allow_html=True,
+    rows = []
+    for _, row in filtered.iterrows():
+        variable_name = str(row.get("Variable Name", ""))
+        encoded = quote(variable_name)
+        rows.append(
+            "<tr>"
+            f"<td><strong>{esc(row.get('Variable Name', ''))}</strong></td>"
+            f"<td>{esc(row.get('Friendly Name', ''))}</td>"
+            f"<td>{esc(row.get('Category', ''))}</td>"
+            f"<td>{esc(row.get('Tealium Variable Name', ''))}</td>"
+            f"<td>{esc(row.get('AWS Field Name', ''))}</td>"
+            f'<td><a class="action-link more-link" href="?view=detail&variable={encoded}" target="_blank">More information ↗</a></td>'
+            f'<td><a class="action-link edit-link" href="?view=edit&variable={encoded}">Edit</a>'
+            f'<a class="action-link delete-link" href="?view=delete&variable={encoded}">Delete</a></td>'
+            "</tr>"
         )
-        st.write("**Variable name:**", row.get("Variable Name", ""))
-        st.write("**Category:**", row.get("Category", ""))
-        st.write("**Subcategory:**", row.get("Subcategory", ""))
-        st.write("**Data type:**", row.get("Data Type", ""))
-        st.write("**Example value:**", row.get("Example Value", ""))
-        st.write("**Allowed values:**", row.get("Allowed Values", ""))
 
-    with right:
-        st.markdown("#### Implementation")
-        st.write("**Tealium variable type:**", row.get("Tealium Variable Type", ""))
-        st.write("**Tealium variable name:**", row.get("Tealium Variable Name", ""))
-        st.write("**AWS field name:**", row.get("AWS Field Name", ""))
-        st.write("**Send to AWS:**", row.get("Send to AWS", ""))
-        st.write("**Source system:**", row.get("Source System", ""))
-
-        st.markdown("#### Governance")
-        st.write("**Contains PII:**", row.get("Contains PII", ""))
-        st.write("**PII classification:**", row.get("PII Classification", ""))
-        st.write("**Owner:**", row.get("Owner", ""))
-        st.write("**Status:**", row.get("Status", ""))
-        st.write("**Business criticality:**", row.get("Business Criticality", ""))
-        st.write("**Journey:**", row.get("Journey", ""))
-        st.write("**Schema version:**", row.get("Schema Version", ""))
+    table_html = f"""
+    <table class="dict-table">
+      <thead>
+        <tr>
+          <th>Variable name</th>
+          <th>Friendly name</th>
+          <th>Category</th>
+          <th>Tealium variable name</th>
+          <th>AWS field name</th>
+          <th>More information</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>{''.join(rows)}</tbody>
+    </table>
+    """
+    st.markdown(table_html, unsafe_allow_html=True)
 
 st.caption("Documentation layer only — Tealium controls which variables are mapped and sent to AWS.")
