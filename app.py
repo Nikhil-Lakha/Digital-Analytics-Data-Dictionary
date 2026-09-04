@@ -58,26 +58,8 @@ DROPDOWN_OPTIONS = {
         "Video",
         "Experimentation / A/B Testing",
     ],
-    "Subcategory": [
-        "Identity",
-        "Navigation",
-        "Interaction",
-        "Funnel",
-        "Product Detail",
-        "Purchase",
-        "Attribution",
-        "Campaign Tracking",
-        "Device Information",
-        "Search Behaviour",
-        "Consent",
-        "Error Detail",
-        "Experiment",
-        "Other",
-        "Not Applicable",
-    ],
     "Data Type": ["String", "Integer", "Decimal", "Boolean", "Date", "Datetime", "Array", "Object"],
     "Send to AWS": ["Yes", "No"],
-    "Required": ["Yes", "No"],
     "Contains PII": ["Yes", "No"],
     "Source System": [
         "Website",
@@ -119,12 +101,26 @@ DROPDOWN_OPTIONS = {
 }
 
 AUTO_FIELDS = {"Date Added", "Last Updated"}
+REMOVED_FIELDS = {"PII Classification", "Deprecated Replacement", "Required", "Subcategory"}
+
+REQUIRED_FIELDS = [
+    "Variable Name",
+    "Friendly Name",
+    "Category",
+    "Definition",
+    "Data Type",
+    "Tealium Variable Name",
+    "Send to AWS",
+    "Tealium Variable Type",
+    "AWS Field Name",
+    "Owner",
+    "Status",
+]
 
 MAIN_FIELDS = [
     "Variable Name",
     "Friendly Name",
     "Category",
-    "Subcategory",
     "Definition",
     "Data Type",
     "Example Value",
@@ -132,7 +128,6 @@ MAIN_FIELDS = [
 
 DETAIL_FIELDS = [
     "Allowed Values",
-    "Required",
     "Tealium Variable Type",
     "Tealium Variable Name",
     "AWS Field Name",
@@ -143,12 +138,10 @@ DETAIL_FIELDS = [
 
 GOVERNANCE_FIELDS = [
     "Contains PII",
-    "PII Classification",
     "Owner",
     "Status",
     "Business Criticality",
     "Schema Version",
-    "Deprecated Replacement",
     "Notes",
 ]
 
@@ -214,13 +207,18 @@ def dropdown(field, current, key, required=False):
     options = [""] + list(DROPDOWN_OPTIONS[field])
     current_text = "" if pd.isna(current) else str(current).strip()
 
-    # Preserve legacy/custom values already stored in the workbook.
     if current_text and current_text not in options:
         options.append(current_text)
 
     index = options.index(current_text) if current_text in options else 0
     label = field + (" *" if required else "")
-    return st.selectbox(label, options, index=index, key=key, format_func=lambda value: "Select an option..." if value == "" else value)
+    return st.selectbox(
+        label,
+        options,
+        index=index,
+        key=key,
+        format_func=lambda value: "Select an option..." if value == "" else value,
+    )
 
 
 def render_field(field, current, values, prefix, required=False):
@@ -247,7 +245,7 @@ def render_form_section(fields, frame, current, values, prefix):
     left, right = st.columns(2)
 
     for idx, field in enumerate(available_fields):
-        required = field in {"Variable Name", "Friendly Name", "Category", "Data Type"}
+        required = field in REQUIRED_FIELDS
         with (left if idx % 2 == 0 else right):
             render_field(field, current.get(field, ""), values, prefix, required=required)
 
@@ -286,11 +284,16 @@ def build_variable_form(frame, row=None, prefix="form"):
                     key=f"{prefix}_last_updated_display",
                 )
 
-    # Keep any workbook columns not explicitly shown so records remain complete.
-    displayed = set(MAIN_FIELDS + DETAIL_FIELDS + GOVERNANCE_FIELDS) | AUTO_FIELDS
+    displayed = set(MAIN_FIELDS + DETAIL_FIELDS + GOVERNANCE_FIELDS) | AUTO_FIELDS | REMOVED_FIELDS
     for field in frame.columns:
         if field not in displayed:
             values[field] = current.get(field, "")
+
+    # Removed fields remain untouched for existing records and blank for new records,
+    # so the workbook schema stays backward compatible without exposing them in the app.
+    for field in REMOVED_FIELDS:
+        if field in frame.columns:
+            values[field] = current.get(field, "") if row is not None else ""
 
     today = date.today().isoformat()
     if row is None:
@@ -318,6 +321,10 @@ def render_info_section(row, fields):
             detail_card(field, row.get(field, ""))
 
 
+def missing_required_fields(values):
+    return [field for field in REQUIRED_FIELDS if not str(values.get(field, "")).strip()]
+
+
 try:
     df = get_data()
 except Exception as exc:
@@ -327,7 +334,7 @@ except Exception as exc:
 
 @st.dialog("Add new variable")
 def add_variable_dialog():
-    st.caption("Create a new record in the Digital Analytics Data Dictionary.")
+    st.caption("Create a new record in the Digital Analytics Data Dictionary. Fields marked * are required.")
     if not require_admin("add"):
         return
     if not get_token():
@@ -338,10 +345,9 @@ def add_variable_dialog():
         submitted = st.form_submit_button("Add variable", type="primary", use_container_width=True)
 
     if submitted:
-        required_fields = ["Variable Name", "Friendly Name", "Category", "Data Type"]
-        missing = [field for field in required_fields if not str(values.get(field, "")).strip()]
+        missing = missing_required_fields(values)
         if missing:
-            st.error(f"Please complete: {', '.join(missing)}")
+            st.error(f"Please complete all required fields: {', '.join(missing)}")
             return
         try:
             create_variable(get_token() or None, values)
@@ -384,15 +390,15 @@ def edit_variable_dialog(variable_name):
     if not require_admin(f"edit_{variable_name}"):
         return
 
+    st.caption("Fields marked * are required before changes can be saved.")
     with st.form(f"edit_{variable_name}"):
         values = build_variable_form(df, row, f"edit_{variable_name}")
         submitted = st.form_submit_button("Save changes", type="primary", use_container_width=True)
 
     if submitted:
-        required_fields = ["Variable Name", "Friendly Name", "Category", "Data Type"]
-        missing = [field for field in required_fields if not str(values.get(field, "")).strip()]
+        missing = missing_required_fields(values)
         if missing:
-            st.error(f"Please complete: {', '.join(missing)}")
+            st.error(f"Please complete all required fields: {', '.join(missing)}")
             return
         try:
             update_variable(get_token() or None, variable_name, values)
