@@ -24,11 +24,15 @@ Documentation flow:
   - Category
   - Tealium Variable Name
   - AWS Field Name
-- More Information link opens the complete variable record in a separate browser tab
-- Edit workflow supports both the main fields and all detailed metadata
-- Delete workflow removes the variable from the master Excel workbook
-- Edit and Delete actions commit directly back to `data/analytics_data_dictionary.xlsx` in GitHub
-- Edit/Delete access is protected by an administrator password
+- **Add New Variable** opens an in-page modal and captures both main and detailed metadata
+- **More Information** opens the complete variable record in a wide in-page modal — no new browser tab
+- **Edit** opens an in-page modal and supports both the main fields and all detailed metadata
+- **Delete** opens an in-page confirmation modal before removing the record
+- Add, Edit, and Delete write back to `data/analytics_data_dictionary.xlsx`
+- On localhost, changes update the local Excel workbook so the workflow can be tested without GitHub credentials
+- When `GITHUB_TOKEN` is configured, changes are committed directly back to the Excel workbook in GitHub
+- Duplicate Variable Name validation is included for both Add and Edit
+- Production editing can be protected with an administrator password
 
 ## Repository structure
 
@@ -49,6 +53,22 @@ Documentation flow:
 └── README.md
 ```
 
+## Local testing
+
+When neither `GITHUB_TOKEN` nor `ADMIN_PASSWORD` is configured, the app runs in local test mode. Add, Edit, and Delete update the local file at:
+
+`data/analytics_data_dictionary.xlsx`
+
+This makes it possible to test the full workflow in VS Code before enabling GitHub write-back.
+
+Run locally on Windows:
+
+```powershell
+.venv\Scripts\activate
+py -m pip install -r requirements.txt
+py -m streamlit run app.py
+```
+
 ## GitHub write-back setup
 
 The deployed app needs two secrets. Do **not** commit real secret values to this repository.
@@ -60,18 +80,7 @@ ADMIN_PASSWORD = "your-admin-password"
 
 Create a fine-grained GitHub Personal Access Token that is restricted to this repository and has repository **Contents: Read and write** permission. Then add both values to the Streamlit Community Cloud app's Secrets settings.
 
-The app uses the GitHub Contents API to download the latest workbook, update or delete the matching row, and commit the modified `.xlsx` file back to the `main` branch.
-
-## Run locally
-
-```bash
-python -m venv .venv
-source .venv/bin/activate  # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
-streamlit run app.py
-```
-
-For local editing, create `.streamlit/secrets.toml` using the same two values shown above. The real `secrets.toml` must never be committed.
+The app uses the GitHub Contents API to download the latest workbook, add/update/delete the matching row, and commit the modified `.xlsx` file back to the `main` branch.
 
 ## Deploy to Streamlit Community Cloud
 
@@ -84,9 +93,6 @@ For local editing, create `.streamlit/secrets.toml` using the same two values sh
 
 ## Future roadmap
 
-- Add new variables through the app
-- Duplicate validation
-- Missing-definition warnings
 - Change history / audit log
 - Schema versioning
 - Compare dictionary with Tealium mapped variables
