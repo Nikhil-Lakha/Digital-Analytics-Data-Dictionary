@@ -17,18 +17,25 @@ REQUIRED_COLUMNS = [
 
 
 def load_dictionary(token: str | None = None) -> pd.DataFrame:
-    """Load the latest dictionary, preferring GitHub so edits are visible immediately."""
+    """Load local Excel during localhost testing; use GitHub as the source when a token is configured."""
     df = None
 
-    try:
-        workbook_bytes = fetch_workbook_bytes(token)
-        df = pd.read_excel(BytesIO(workbook_bytes), sheet_name="Variables", engine="openpyxl")
-    except Exception:
-        if XLSX_PATH.exists():
-            try:
-                df = pd.read_excel(XLSX_PATH, sheet_name="Variables", engine="openpyxl")
-            except Exception:
-                df = None
+    if not token and XLSX_PATH.exists():
+        try:
+            df = pd.read_excel(XLSX_PATH, sheet_name="Variables", engine="openpyxl")
+        except Exception:
+            df = None
+
+    if df is None:
+        try:
+            workbook_bytes = fetch_workbook_bytes(token)
+            df = pd.read_excel(BytesIO(workbook_bytes), sheet_name="Variables", engine="openpyxl")
+        except Exception:
+            if XLSX_PATH.exists():
+                try:
+                    df = pd.read_excel(XLSX_PATH, sheet_name="Variables", engine="openpyxl")
+                except Exception:
+                    df = None
 
     if df is None:
         if not CSV_PATH.exists():
