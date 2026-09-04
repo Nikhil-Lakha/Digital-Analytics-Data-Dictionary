@@ -17,35 +17,64 @@ st.set_page_config(
 st.markdown(
     """
     <style>
-    .block-container {padding-top: 1.4rem; padding-bottom: 2.5rem; max-width: 1500px;}
+    .block-container {padding-top:1.35rem; padding-bottom:2.5rem; max-width:1500px;}
     [data-testid="stSidebar"] {background:#f7f7f8; border-right:1px solid #e9e9eb;}
     [data-testid="stSidebar"] .block-container {padding-top:1.5rem;}
+
     .sidebar-kicker {font-size:.72rem; font-weight:800; letter-spacing:.1em; color:#E60000; margin-bottom:.25rem;}
     .sidebar-title {font-size:1.15rem; font-weight:800; color:#1f1f1f; margin-bottom:.2rem;}
     .sidebar-copy {font-size:.84rem; color:#747474; margin-bottom:1.2rem; line-height:1.45;}
+
     .app-kicker {font-size:.76rem; font-weight:800; letter-spacing:.1em; color:#E60000; margin-bottom:.2rem;}
     .app-title {font-size:2rem; line-height:1.1; font-weight:800; color:#171717; margin-bottom:.35rem;}
     .app-subtitle {font-size:.95rem; color:#6b6b6b; margin-bottom:.45rem;}
     .schema-badge {display:inline-block; font-size:.72rem; font-weight:700; color:#555; background:#f4f4f5; border:1px solid #e4e4e7; border-radius:999px; padding:4px 9px; margin-top:2px;}
+
     .metric-card {background:#fff; border:1px solid #e7e7e9; border-radius:10px; padding:12px 14px; box-shadow:0 1px 2px rgba(0,0,0,.025);}
     .metric-label {font-size:.76rem; color:#777; margin-bottom:2px;}
     .metric-value {font-size:1.35rem; font-weight:800; color:#202020; line-height:1.2;}
+
     .section-title {font-size:1.12rem; font-weight:800; color:#1f1f1f; margin-top:.3rem; margin-bottom:.1rem;}
     .section-copy {font-size:.82rem; color:#777; margin-bottom:.65rem;}
+    .toolbar-note {font-size:.8rem; color:#777; padding-top:.5rem;}
+
+    .registry-header {background:#f6f6f7; border:1px solid #e7e7e9; border-radius:10px; padding:3px 12px; margin-top:.25rem; margin-bottom:2px;}
+    .table-header {font-size:.7rem; font-weight:800; color:#6f6f73; text-transform:uppercase; letter-spacing:.045em; padding:8px 3px;}
+    .registry-row {border-bottom:1px solid #ededee; padding:5px 12px 6px 12px;}
+    .cell-text {color:#454549; font-size:.88rem; padding-top:8px; line-height:1.35;}
+    .cell-muted {color:#737378; font-size:.82rem; padding-top:8px; line-height:1.35;}
+    .mapping-value {font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; color:#4d4d52; font-size:.82rem; padding-top:8px; overflow-wrap:anywhere;}
+    .status-badge {display:inline-flex; align-items:center; gap:6px; border:1px solid #e1e1e4; background:#f7f7f8; border-radius:999px; padding:4px 9px; margin-top:5px; font-size:.74rem; font-weight:700; color:#444; white-space:nowrap;}
+    .status-dot {width:7px; height:7px; background:#777; border-radius:50%; display:inline-block;}
+
     .detail-box {background:#fbfbfc; border:1px solid #e9e9eb; border-radius:9px; padding:12px 14px; margin-bottom:9px; min-height:68px;}
     .detail-box strong {font-size:.75rem; color:#686868; text-transform:uppercase; letter-spacing:.025em;}
-    .table-shell {border:1px solid #e5e5e7; border-radius:12px; overflow:hidden; background:white; margin-top:.35rem;}
-    .table-header {font-size:.72rem; font-weight:800; color:#6b6b6b; text-transform:uppercase; letter-spacing:.035em; padding:9px 5px;}
-    .row-divider {border-top:1px solid #eeeeef; margin:2px 0 4px 0;}
-    .variable-primary {font-weight:700; color:#202020; padding-top:4px;}
-    .cell-text {color:#4f4f4f; font-size:.9rem; padding-top:4px;}
-    .status-badge {display:inline-flex; align-items:center; gap:6px; border:1px solid #e1e1e4; background:#f7f7f8; border-radius:999px; padding:4px 9px; font-size:.76rem; font-weight:700; color:#444; white-space:nowrap;}
-    .status-dot {width:7px; height:7px; background:#777; border-radius:50%; display:inline-block;}
-    .toolbar-note {font-size:.8rem; color:#777; padding-top:.5rem;}
-    div[data-testid="stDialog"] div[role="dialog"] {max-width: 1080px; width:min(1080px, 95vw); border-radius:16px;}
+    .modal-heading {font-size:1.35rem; font-weight:800; color:#1d1d1f; margin-bottom:2px;}
+    .modal-meta {font-size:.82rem; color:#777; margin-bottom:.7rem;}
+    .modal-actions {border-top:1px solid #ececee; margin-top:.8rem; padding-top:.9rem;}
+
+    div[data-testid="stDialog"] div[role="dialog"] {max-width:1080px; width:min(1080px, 95vw); border-radius:16px;}
     div[data-testid="stDialog"] [data-testid="stForm"] {border:0; padding:0;}
     div[data-testid="stButton"] > button, div[data-testid="stDownloadButton"] > button {border-radius:8px;}
     div[data-testid="stTabs"] button {font-weight:650;}
+
+    /* Variable-name buttons behave like clean table links. */
+    div[data-testid="stButton"] button[kind="tertiary"] {
+        justify-content:flex-start;
+        padding:5px 0;
+        min-height:0;
+        border:0;
+        background:transparent;
+        color:#202024;
+        font-weight:750;
+        font-size:.9rem;
+        text-decoration:none;
+    }
+    div[data-testid="stButton"] button[kind="tertiary"]:hover {
+        color:#E60000;
+        background:transparent;
+        text-decoration:underline;
+    }
     hr {margin:.8rem 0 1rem 0;}
     </style>
     """,
@@ -197,7 +226,7 @@ def require_admin(prefix):
     if st.button("Unlock", key=f"{prefix}_unlock", type="primary"):
         if entered == password:
             st.session_state["admin_authenticated"] = True
-            st.rerun()
+            st.rerun(scope="fragment")
         else:
             st.error("Incorrect administrator password.")
     return False
@@ -345,9 +374,7 @@ def missing_required_fields(values):
 
 def status_badge(status):
     label = clean_text(status) or "Not set"
-    return (
-        f'<span class="status-badge"><span class="status-dot"></span>{html.escape(label)}</span>'
-    )
+    return f'<span class="status-badge"><span class="status-dot"></span>{html.escape(label)}</span>'
 
 
 def clear_filters():
@@ -390,81 +417,112 @@ def add_variable_dialog():
             st.error(f"Could not add the variable: {exc}")
 
 
-@st.dialog("Variable Information")
-def information_dialog(variable_name):
+@st.dialog("Variable")
+def variable_dialog(variable_name):
     row = find_row(df, variable_name)
     if row is None:
         st.error("That variable could not be found.")
         return
 
-    st.markdown(f"### {esc(row.get('Friendly Name', variable_name))}", unsafe_allow_html=True)
-    st.caption(f"{clean_text(row.get('Variable Name', ''))}  •  {clean_text(row.get('Status', '')) or 'Status not set'}")
+    mode_key = f"variable_modal_mode_{variable_name}"
+    if mode_key not in st.session_state:
+        st.session_state[mode_key] = "view"
+    mode = st.session_state[mode_key]
 
-    main_tab, technical_tab, governance_tab = st.tabs(
-        ["Main Information", "Technical Details", "Governance"]
+    friendly_name = clean_text(row.get("Friendly Name", "")) or variable_name
+    status = clean_text(row.get("Status", "")) or "Status not set"
+
+    st.markdown(f'<div class="modal-heading">{html.escape(friendly_name)}</div>', unsafe_allow_html=True)
+    st.markdown(
+        f'<div class="modal-meta">{html.escape(variable_name)} &nbsp;•&nbsp; {html.escape(status)}</div>',
+        unsafe_allow_html=True,
     )
-    with main_tab:
-        render_info_section(row, MAIN_FIELDS)
-    with technical_tab:
-        render_info_section(row, DETAIL_FIELDS)
-    with governance_tab:
-        render_info_section(row, GOVERNANCE_FIELDS + ["Date Added", "Last Updated"])
 
+    if mode == "view":
+        main_tab, technical_tab, governance_tab = st.tabs(
+            ["Main Information", "Technical Details", "Governance"]
+        )
+        with main_tab:
+            render_info_section(row, MAIN_FIELDS)
+        with technical_tab:
+            render_info_section(row, DETAIL_FIELDS)
+        with governance_tab:
+            render_info_section(row, GOVERNANCE_FIELDS + ["Date Added", "Last Updated"])
 
-@st.dialog("Edit Variable")
-def edit_variable_dialog(variable_name):
-    row = find_row(df, variable_name)
-    if row is None:
-        st.error("That variable could not be found.")
-        return
-    if not require_admin(f"edit_{variable_name}"):
-        return
+        st.markdown('<div class="modal-actions"></div>', unsafe_allow_html=True)
+        spacer, edit_col, delete_col = st.columns([3, 1, 1])
+        with edit_col:
+            if st.button("Edit Variable", key=f"modal_edit_{variable_name}", use_container_width=True):
+                st.session_state[mode_key] = "edit"
+                st.rerun(scope="fragment")
+        with delete_col:
+            if st.button("Delete", key=f"modal_delete_{variable_name}", use_container_width=True):
+                st.session_state[mode_key] = "delete"
+                st.rerun(scope="fragment")
 
-    st.caption(f"Editing {variable_name}. Fields marked * are required.")
-    with st.form(f"edit_{variable_name}"):
-        values = build_variable_form(df, row, f"edit_{variable_name}")
-        _, submit_col = st.columns([3.2, 1])
-        with submit_col:
-            submitted = st.form_submit_button("Save Changes", type="primary", use_container_width=True)
-
-    if submitted:
-        missing = missing_required_fields(values)
-        if missing:
-            st.error(f"Please complete all required fields: {', '.join(missing)}")
+    elif mode == "edit":
+        if not require_admin(f"edit_{variable_name}"):
             return
-        try:
-            update_variable(get_token() or None, variable_name, values)
-            st.cache_data.clear()
-            st.rerun()
-        except Exception as exc:
-            st.error(f"Could not save changes: {exc}")
 
+        st.caption("Fields marked * are required before changes can be saved.")
+        with st.form(f"edit_{variable_name}"):
+            values = build_variable_form(df, row, f"edit_{variable_name}")
+            cancel_col, spacer, save_col = st.columns([1, 2.2, 1])
+            with cancel_col:
+                cancelled = st.form_submit_button("Cancel", use_container_width=True)
+            with save_col:
+                submitted = st.form_submit_button("Save Changes", type="primary", use_container_width=True)
 
-@st.dialog("Delete Variable")
-def delete_variable_dialog(variable_name):
-    row = find_row(df, variable_name)
-    if row is None:
-        return
-    if not require_admin(f"delete_{variable_name}"):
-        return
+        if cancelled:
+            st.session_state[mode_key] = "view"
+            st.rerun(scope="fragment")
 
-    st.warning(f"You are about to permanently delete **{variable_name} — {row.get('Friendly Name', '')}**.")
-    confirm = st.checkbox(
-        "I understand this removes the full record.",
-        key=f"confirm_{variable_name}",
-    )
-    if st.button(
-        "Delete Variable",
-        type="primary",
-        disabled=not confirm,
-        use_container_width=True,
-    ):
-        try:
-            delete_variable(get_token() or None, variable_name)
-            st.cache_data.clear()
-            st.rerun()
-        except Exception as exc:
-            st.error(f"Could not delete variable: {exc}")
+        if submitted:
+            missing = missing_required_fields(values)
+            if missing:
+                st.error(f"Please complete all required fields: {', '.join(missing)}")
+                return
+            try:
+                new_variable_name = clean_text(values.get("Variable Name", "")) or variable_name
+                update_variable(get_token() or None, variable_name, values)
+                st.cache_data.clear()
+                st.session_state.pop(mode_key, None)
+                if new_variable_name != variable_name:
+                    st.session_state[f"variable_modal_mode_{new_variable_name}"] = "view"
+                st.rerun()
+            except Exception as exc:
+                st.error(f"Could not save changes: {exc}")
+
+    elif mode == "delete":
+        if not require_admin(f"delete_{variable_name}"):
+            return
+
+        st.warning(f"You are about to permanently delete **{variable_name} — {friendly_name}**.")
+        st.caption("This removes the complete variable record from the data dictionary.")
+        confirm = st.checkbox(
+            "I understand that this action cannot be undone.",
+            key=f"confirm_{variable_name}",
+        )
+        cancel_col, spacer, delete_col = st.columns([1, 2.2, 1])
+        with cancel_col:
+            if st.button("Cancel", key=f"cancel_delete_{variable_name}", use_container_width=True):
+                st.session_state[mode_key] = "view"
+                st.rerun(scope="fragment")
+        with delete_col:
+            if st.button(
+                "Delete Variable",
+                type="primary",
+                disabled=not confirm,
+                key=f"confirm_delete_{variable_name}",
+                use_container_width=True,
+            ):
+                try:
+                    delete_variable(get_token() or None, variable_name)
+                    st.cache_data.clear()
+                    st.session_state.pop(mode_key, None)
+                    st.rerun()
+                except Exception as exc:
+                    st.error(f"Could not delete variable: {exc}")
 
 
 with st.sidebar:
@@ -568,7 +626,7 @@ registry_left, registry_right = st.columns([4, 1])
 with registry_left:
     st.markdown('<div class="section-title">Variable Registry</div>', unsafe_allow_html=True)
     st.markdown(
-        '<div class="section-copy">Browse, review and maintain governed analytics definitions.</div>',
+        '<div class="section-copy">Click a variable name to view its complete definition, edit it or delete it.</div>',
         unsafe_allow_html=True,
     )
 with registry_right:
@@ -577,50 +635,60 @@ with registry_right:
         unsafe_allow_html=True,
     )
 
-widths = [1.35, 1.45, 1.05, 1.4, 1.25, .85, 1.25]
+widths = [1.55, 1.55, 1.1, 1.55, 1.4, .9]
 headers = [
-    "Variable",
+    "Variable Name",
     "Friendly Name",
     "Category",
     "Tealium Variable",
     "AWS Field",
     "Status",
-    "Actions",
 ]
-for col, label in zip(st.columns(widths), headers):
-    with col:
-        st.markdown(f'<div class="table-header">{label}</div>', unsafe_allow_html=True)
-st.markdown('<div class="row-divider"></div>', unsafe_allow_html=True)
+
+header_container = st.container()
+with header_container:
+    st.markdown('<div class="registry-header">', unsafe_allow_html=True)
+    for col, label in zip(st.columns(widths), headers):
+        with col:
+            st.markdown(f'<div class="table-header">{label}</div>', unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
 
 if filtered.empty:
     st.info("No variables match the current filters. Try clearing one or more filters from the sidebar.")
 else:
     for idx, row in filtered.reset_index(drop=True).iterrows():
         variable_name = clean_text(row.get("Variable Name", ""))
-        cols = st.columns(widths)
-        with cols[0]:
-            st.markdown(f'<div class="variable-primary">{html.escape(variable_name)}</div>', unsafe_allow_html=True)
-        with cols[1]:
-            st.markdown(f'<div class="cell-text">{esc(row.get("Friendly Name", "")) or "—"}</div>', unsafe_allow_html=True)
-        with cols[2]:
-            st.markdown(f'<div class="cell-text">{esc(row.get("Category", "")) or "—"}</div>', unsafe_allow_html=True)
-        with cols[3]:
-            st.markdown(f'<div class="cell-text">{esc(row.get("Tealium Variable Name", "")) or "—"}</div>', unsafe_allow_html=True)
-        with cols[4]:
-            st.markdown(f'<div class="cell-text">{esc(row.get("AWS Field Name", "")) or "—"}</div>', unsafe_allow_html=True)
-        with cols[5]:
-            st.markdown(status_badge(row.get("Status", "")), unsafe_allow_html=True)
-        with cols[6]:
-            view_col, edit_col, more_col = st.columns([1, 1, .7])
-            with view_col:
-                if st.button("View", key=f"view_{idx}_{variable_name}", use_container_width=True):
-                    information_dialog(variable_name)
-            with edit_col:
-                if st.button("Edit", key=f"edit_{idx}_{variable_name}", use_container_width=True):
-                    edit_variable_dialog(variable_name)
-            with more_col:
-                with st.popover("⋮", use_container_width=True):
-                    st.caption(variable_name)
-                    if st.button("Delete", key=f"delete_{idx}_{variable_name}", use_container_width=True):
-                        delete_variable_dialog(variable_name)
-        st.markdown('<div class="row-divider"></div>', unsafe_allow_html=True)
+        with st.container():
+            cols = st.columns(widths, gap="small")
+            with cols[0]:
+                if st.button(
+                    variable_name or "Unnamed variable",
+                    key=f"open_variable_{idx}_{variable_name}",
+                    type="tertiary",
+                    help="Open variable details",
+                ):
+                    st.session_state[f"variable_modal_mode_{variable_name}"] = "view"
+                    variable_dialog(variable_name)
+            with cols[1]:
+                st.markdown(
+                    f'<div class="cell-text">{esc(row.get("Friendly Name", "")) or "—"}</div>',
+                    unsafe_allow_html=True,
+                )
+            with cols[2]:
+                st.markdown(
+                    f'<div class="cell-muted">{esc(row.get("Category", "")) or "—"}</div>',
+                    unsafe_allow_html=True,
+                )
+            with cols[3]:
+                st.markdown(
+                    f'<div class="mapping-value">{esc(row.get("Tealium Variable Name", "")) or "—"}</div>',
+                    unsafe_allow_html=True,
+                )
+            with cols[4]:
+                st.markdown(
+                    f'<div class="mapping-value">{esc(row.get("AWS Field Name", "")) or "—"}</div>',
+                    unsafe_allow_html=True,
+                )
+            with cols[5]:
+                st.markdown(status_badge(row.get("Status", "")), unsafe_allow_html=True)
+            st.markdown('<div style="border-bottom:1px solid #ededee; margin-top:4px;"></div>', unsafe_allow_html=True)
