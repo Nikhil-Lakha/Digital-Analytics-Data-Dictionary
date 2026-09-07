@@ -182,6 +182,13 @@ st.markdown(
         border:0; background:transparent; color:#075bd8;
         font-weight:800; font-size:.84rem; text-decoration:none;
     }
+    div[data-testid="stButton"] button[kind="tertiary"] p {
+        white-space:normal !important;
+        overflow-wrap:anywhere;
+        word-break:break-word;
+        text-align:left;
+        line-height:1.25;
+    }
     div[data-testid="stButton"] button[kind="tertiary"]:hover {
         color:var(--vodafone-red); background:transparent; text-decoration:underline;
     }
