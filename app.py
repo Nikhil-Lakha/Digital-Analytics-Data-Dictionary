@@ -415,7 +415,9 @@ def status_pill(value):
 
 def aws_pill(value):
     yes = clean_text(value).lower() in {"yes", "true", "1"}
-    return f'<span class="pill {"pill-green" if yes else "pill-gray"}>{"Yes" if yes else "No"}</span>'
+    css = "pill-green" if yes else "pill-gray"
+    label = "Yes" if yes else "No"
+    return f'<span class="pill {css}">{label}</span>'
 
 
 def type_pill(value):
