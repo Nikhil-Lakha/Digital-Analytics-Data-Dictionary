@@ -23,7 +23,6 @@ st.markdown(
         --ink:#111827;
         --muted:#667085;
         --line:rgba(148,163,184,.24);
-        --glass:rgba(255,255,255,.72);
     }
 
     .stApp {
@@ -48,8 +47,7 @@ st.markdown(
         border-right:1px solid rgba(148,163,184,.20);
     }
     [data-testid="stSidebar"] .block-container {padding-top:1.4rem;}
-    [data-testid="stSidebar"] [data-baseweb="select"] > div,
-    [data-testid="stSidebar"] input {
+    [data-testid="stSidebar"] [data-baseweb="select"] > div {
         background:rgba(255,255,255,.72) !important;
         border-color:rgba(148,163,184,.30) !important;
         border-radius:10px !important;
@@ -94,13 +92,16 @@ st.markdown(
     .metric-value {font-size:1.55rem; font-weight:850; color:#101828; line-height:1.05;}
     .metric-label {font-size:.76rem; color:#667085; margin-top:5px;}
 
-    .action-row {
-        margin-top:.8rem;
-        margin-bottom:.85rem;
+    .search-label {
+        font-size:.78rem;
+        color:#667085;
+        font-weight:700;
+        margin-top:1rem;
+        margin-bottom:.25rem;
     }
 
     .registry-shell {
-        margin-top:.4rem;
+        margin-top:.9rem;
         background:rgba(255,255,255,.72);
         border:1px solid rgba(255,255,255,.84);
         border-radius:16px;
@@ -119,11 +120,7 @@ st.markdown(
         font-size:.68rem; font-weight:800; color:#475467;
         text-transform:uppercase; letter-spacing:.045em; padding:8px 2px;
     }
-
-    .row-spacer {
-        height:7px;
-    }
-
+    .row-spacer {height:7px;}
     .row-card-marker {
         height:1px;
         background:rgba(148,163,184,.12);
@@ -155,7 +152,6 @@ st.markdown(
     }
     .detail-box strong {font-size:.7rem; color:#667085; text-transform:uppercase; letter-spacing:.04em;}
     .detail-box div {margin-top:5px; color:#25324a; font-size:.88rem; line-height:1.42;}
-
     .footer-note {font-size:.74rem; color:#7b8494; padding-top:1rem;}
 
     div[data-testid="stDialog"] div[role="dialog"] {
@@ -168,8 +164,17 @@ st.markdown(
         box-shadow:0 24px 80px rgba(15,23,42,.18);
     }
     div[data-testid="stDialog"] [data-testid="stForm"] {border:0; padding:0;}
+
     div[data-testid="stButton"] > button,
-    div[data-testid="stDownloadButton"] > button {border-radius:10px; min-height:40px;}
+    div[data-testid="stDownloadButton"] > button {
+        border-radius:10px;
+        min-height:40px;
+        width:100%;
+    }
+    div[data-testid="stButton"] button p,
+    div[data-testid="stDownloadButton"] button p {
+        white-space:nowrap !important;
+    }
     div[data-testid="stTabs"] button {font-weight:700;}
 
     div[data-testid="stButton"] button[kind="tertiary"] {
@@ -184,6 +189,7 @@ st.markdown(
     @media (max-width: 900px) {
         .app-title {font-size:1.9rem;}
         .metric-card {min-height:74px;}
+        .block-container {padding-left:1rem; padding-right:1rem;}
     }
     </style>
     """,
@@ -371,10 +377,7 @@ def build_variable_form(frame, row=None, prefix="form"):
             values[field] = current.get(field, "") if row is not None else ""
 
     today = date.today().isoformat()
-    if row is None:
-        values["Date Added"] = today
-    else:
-        values["Date Added"] = clean_text(current.get("Date Added", "")) or today
+    values["Date Added"] = today if row is None else clean_text(current.get("Date Added", "")) or today
     values["Last Updated"] = today
     return values
 
@@ -412,9 +415,7 @@ def status_pill(value):
 
 def aws_pill(value):
     yes = clean_text(value).lower() in {"yes", "true", "1"}
-    label = "Yes" if yes else "No"
-    css = "pill-green" if yes else "pill-gray"
-    return f'<span class="pill {css}">{label}</span>'
+    return f'<span class="pill {"pill-green" if yes else "pill-gray"}>{"Yes" if yes else "No"}</span>'
 
 
 def type_pill(value):
@@ -430,7 +431,7 @@ def initials(name):
 
 
 def clear_filters():
-    for key in ["filter_search", "filter_category", "filter_data_type", "filter_status", "filter_owner"]:
+    for key in ["filter_category", "filter_data_type", "filter_status", "filter_owner"]:
         if key in st.session_state:
             del st.session_state[key]
     st.session_state["registry_page"] = 1
@@ -454,9 +455,7 @@ def add_variable_dialog():
         values = build_variable_form(df, prefix="add")
         _, action = st.columns([3.4, 1])
         with action:
-            submitted = st.form_submit_button(
-                "Add Variable", type="primary", use_container_width=True
-            )
+            submitted = st.form_submit_button("Add Variable", type="primary", use_container_width=True)
     if submitted:
         missing = missing_required_fields(values)
         if missing:
@@ -481,10 +480,7 @@ def variable_dialog(variable_name):
     mode = st.session_state.get(mode_key, "view")
 
     if mode == "edit":
-        st.markdown(
-            f"### Edit {esc(row.get('Friendly Name', variable_name))}",
-            unsafe_allow_html=True,
-        )
+        st.markdown(f"### Edit {esc(row.get('Friendly Name', variable_name))}", unsafe_allow_html=True)
         st.caption(f"{variable_name} · Fields marked * are required.")
         if not require_admin(f"edit_{variable_name}"):
             return
@@ -492,9 +488,7 @@ def variable_dialog(variable_name):
             values = build_variable_form(df, row, f"edit_{variable_name}")
             _, save_col = st.columns([3.4, 1])
             with save_col:
-                submitted = st.form_submit_button(
-                    "Save Changes", type="primary", use_container_width=True
-                )
+                submitted = st.form_submit_button("Save Changes", type="primary", use_container_width=True)
         if st.button("← Back to variable", key=f"back_edit_{variable_name}"):
             st.session_state[mode_key] = "view"
             st.rerun(scope="fragment")
@@ -519,10 +513,7 @@ def variable_dialog(variable_name):
         )
         if not require_admin(f"delete_{variable_name}"):
             return
-        confirm = st.checkbox(
-            "I understand this removes the full record.",
-            key=f"confirm_{variable_name}",
-        )
+        confirm = st.checkbox("I understand this removes the full record.", key=f"confirm_{variable_name}")
         back_col, delete_col = st.columns([3.4, 1])
         with back_col:
             if st.button("← Back", key=f"back_delete_{variable_name}"):
@@ -545,44 +536,24 @@ def variable_dialog(variable_name):
                     st.error(f"Could not delete variable: {exc}")
         return
 
-    st.markdown(
-        f"### {esc(row.get('Friendly Name', variable_name))}",
-        unsafe_allow_html=True,
-    )
-    st.caption(
-        f"{variable_name}  ·  {clean_text(row.get('Status', '')) or 'Status not set'}"
-    )
-    main_tab, technical_tab, governance_tab = st.tabs(
-        ["Main Information", "Technical Details", "Governance"]
-    )
+    st.markdown(f"### {esc(row.get('Friendly Name', variable_name))}", unsafe_allow_html=True)
+    st.caption(f"{variable_name}  ·  {clean_text(row.get('Status', '')) or 'Status not set'}")
+    main_tab, technical_tab, governance_tab = st.tabs(["Main Information", "Technical Details", "Governance"])
     with main_tab:
         render_info_section(row, MAIN_FIELDS, df)
     with technical_tab:
         render_info_section(row, DETAIL_FIELDS, df)
     with governance_tab:
-        render_info_section(
-            row,
-            GOVERNANCE_FIELDS + ["Date Added", "Last Updated"],
-            df,
-        )
+        render_info_section(row, GOVERNANCE_FIELDS + ["Date Added", "Last Updated"], df)
 
     st.markdown("---")
-    spacer, edit_col, delete_col = st.columns([3, 1, 1])
+    _, edit_col, delete_col = st.columns([3, 1, 1])
     with edit_col:
-        if st.button(
-            "Edit Variable",
-            type="primary",
-            use_container_width=True,
-            key=f"modal_edit_{variable_name}",
-        ):
+        if st.button("Edit Variable", type="primary", use_container_width=True, key=f"modal_edit_{variable_name}"):
             st.session_state[mode_key] = "edit"
             st.rerun(scope="fragment")
     with delete_col:
-        if st.button(
-            "Delete",
-            use_container_width=True,
-            key=f"modal_delete_{variable_name}",
-        ):
+        if st.button("Delete", use_container_width=True, key=f"modal_delete_{variable_name}"):
             st.session_state[mode_key] = "delete"
             st.rerun(scope="fragment")
 
@@ -592,103 +563,34 @@ with st.sidebar:
         '<div class="brand-row"><div class="brand-mark">V</div><div class="brand-name">vodafone</div></div>',
         unsafe_allow_html=True,
     )
-    st.markdown(
-        '<div class="sidebar-kicker">DIGITAL ANALYTICS</div>',
-        unsafe_allow_html=True,
-    )
+    st.markdown('<div class="sidebar-kicker">DIGITAL ANALYTICS</div>', unsafe_allow_html=True)
     st.markdown('<div class="sidebar-title">Filters</div>', unsafe_allow_html=True)
     st.markdown(
         '<div class="sidebar-copy">Refine the data dictionary using the fields below.</div>',
         unsafe_allow_html=True,
     )
-
-    search = st.text_input(
-        "Search",
-        placeholder="Search variables...",
-        key="filter_search",
-    )
-    category = st.multiselect(
-        "Category",
-        unique_values(df, "Category"),
-        key="filter_category",
-    )
-    data_type = st.multiselect(
-        "Data Type",
-        unique_values(df, "Data Type"),
-        key="filter_data_type",
-    )
-    status = st.multiselect(
-        "Status",
-        unique_values(df, "Status"),
-        key="filter_status",
-    )
-    owner = st.multiselect(
-        "Owner",
-        unique_values(df, "Owner"),
-        key="filter_owner",
-    )
+    category = st.multiselect("Category", unique_values(df, "Category"), key="filter_category")
+    data_type = st.multiselect("Data Type", unique_values(df, "Data Type"), key="filter_data_type")
+    status = st.multiselect("Status", unique_values(df, "Status"), key="filter_status")
+    owner = st.multiselect("Owner", unique_values(df, "Owner"), key="filter_owner")
     st.button("Reset all", use_container_width=True, on_click=clear_filters)
-
     st.markdown(
         '<div class="sidebar-footer"><strong>Schema v1.0</strong><br>Documentation layer only.<br>Tealium controls which variables are mapped and sent to AWS.</div>',
         unsafe_allow_html=True,
     )
 
-
-filtered = df.copy()
-if search.strip():
-    term = search.strip().lower()
-    mask = pd.Series(False, index=filtered.index)
-    for column in ["Variable Name", "Friendly Name", "Definition"]:
-        mask |= (
-            filtered[column]
-            .fillna("")
-            .astype(str)
-            .str.lower()
-            .str.contains(term, regex=False)
-        )
-    filtered = filtered[mask]
-
-for column, selected in [
-    ("Category", category),
-    ("Data Type", data_type),
-    ("Status", status),
-    ("Owner", owner),
-]:
-    if selected:
-        filtered = filtered[filtered[column].astype(str).isin(selected)]
-
-filtered = filtered.sort_values(
-    by="Variable Name",
-    key=lambda s: s.astype(str).str.lower(),
-).reset_index(drop=True)
-
-
-st.markdown(
-    '<div class="app-kicker">DIGITAL ANALYTICS</div>',
-    unsafe_allow_html=True,
-)
-st.markdown(
-    '<div class="app-title">Data Dictionary</div>',
-    unsafe_allow_html=True,
-)
+st.markdown('<div class="app-kicker">DIGITAL ANALYTICS</div>', unsafe_allow_html=True)
+st.markdown('<div class="app-title">Data Dictionary</div>', unsafe_allow_html=True)
 st.markdown(
     '<div class="app-subtitle">A central registry of digital analytics variables, definitions and mappings.</div>',
     unsafe_allow_html=True,
 )
 
 st.write("")
-missing_definitions = int(
-    df["Definition"].fillna("").astype(str).str.strip().eq("").sum()
-)
-aws_count = int(
-    df["Send to AWS"].astype(str).str.lower().isin(["true", "yes", "1"]).sum()
-)
-pii_count = int(
-    df["Contains PII"].astype(str).str.lower().isin(["true", "yes", "1"]).sum()
-)
+missing_definitions = int(df["Definition"].fillna("").astype(str).str.strip().eq("").sum())
+aws_count = int(df["Send to AWS"].astype(str).str.lower().isin(["true", "yes", "1"]).sum())
+pii_count = int(df["Contains PII"].astype(str).str.lower().isin(["true", "yes", "1"]).sum())
 active_count = int(df["Status"].astype(str).str.lower().eq("active").sum())
-
 metrics = [
     ("Total Variables", len(df)),
     ("Active", active_count),
@@ -703,8 +605,32 @@ for col, (label, value) in zip(st.columns(5, gap="medium"), metrics):
             unsafe_allow_html=True,
         )
 
-st.markdown('<div class="action-row"></div>', unsafe_allow_html=True)
-action_spacer, export_col, add_col = st.columns([4.8, 1.05, 1.25], gap="small")
+st.markdown('<div class="search-label">Search variables</div>', unsafe_allow_html=True)
+search = st.text_input(
+    "Search variables",
+    placeholder="Search by variable name, friendly name or definition...",
+    key="main_search",
+    label_visibility="collapsed",
+)
+
+filtered = df.copy()
+if search.strip():
+    term = search.strip().lower()
+    mask = pd.Series(False, index=filtered.index)
+    for column in ["Variable Name", "Friendly Name", "Definition"]:
+        mask |= filtered[column].fillna("").astype(str).str.lower().str.contains(term, regex=False)
+    filtered = filtered[mask]
+for column, selected in [
+    ("Category", category),
+    ("Data Type", data_type),
+    ("Status", status),
+    ("Owner", owner),
+]:
+    if selected:
+        filtered = filtered[filtered[column].astype(str).isin(selected)]
+filtered = filtered.sort_values(by="Variable Name", key=lambda s: s.astype(str).str.lower()).reset_index(drop=True)
+
+button_left, export_col, add_col = st.columns([4.2, 1.15, 1.35], gap="small")
 with export_col:
     st.download_button(
         "⇩ Export",
@@ -735,10 +661,7 @@ page_size = 10
 total_pages = max(1, math.ceil(len(filtered) / page_size))
 if "registry_page" not in st.session_state:
     st.session_state["registry_page"] = 1
-st.session_state["registry_page"] = min(
-    max(1, st.session_state["registry_page"]),
-    total_pages,
-)
+st.session_state["registry_page"] = min(max(1, st.session_state["registry_page"]), total_pages)
 page = st.session_state["registry_page"]
 start = (page - 1) * page_size
 end = min(start + page_size, len(filtered))
@@ -746,27 +669,15 @@ page_frame = filtered.iloc[start:end]
 
 widths = [1.35, 1.8, 1.15, .85, .85, .8, 1.15, 1.0]
 headers = [
-    "Variable Name",
-    "Friendly Name",
-    "Category",
-    "Data Type",
-    "Status",
-    "Send to AWS",
-    "Owner",
-    "Last Updated",
+    "Variable Name", "Friendly Name", "Category", "Data Type",
+    "Status", "Send to AWS", "Owner", "Last Updated",
 ]
-head_cols = st.columns(widths)
-for col, label in zip(head_cols, headers):
+for col, label in zip(st.columns(widths), headers):
     with col:
-        st.markdown(
-            f'<div class="table-header">{label}</div>',
-            unsafe_allow_html=True,
-        )
+        st.markdown(f'<div class="table-header">{label}</div>', unsafe_allow_html=True)
 
 if page_frame.empty:
-    st.info(
-        "No variables match the current filters. Try clearing one or more filters from the sidebar."
-    )
+    st.info("No variables match the current search or filters.")
 else:
     for display_idx, (idx, row) in enumerate(page_frame.iterrows()):
         if display_idx > 0:
@@ -774,52 +685,29 @@ else:
                 '<div class="row-spacer"></div><div class="row-card-marker"></div><div class="row-spacer"></div>',
                 unsafe_allow_html=True,
             )
-
         variable_name = clean_text(row.get("Variable Name", ""))
         row_key = f"{idx}_{variable_name}"
         cols = st.columns(widths)
         with cols[0]:
-            if st.button(
-                variable_name or "Unnamed",
-                key=f"open_{row_key}",
-                type="tertiary",
-            ):
+            if st.button(variable_name or "Unnamed", key=f"open_{row_key}", type="tertiary"):
                 st.session_state[f"variable_dialog_mode_{variable_name}"] = "view"
                 variable_dialog(variable_name)
         with cols[1]:
             friendly = esc(row.get("Friendly Name", "")) or "—"
             definition = clean_text(row.get("Definition", ""))
-            short_def = (
-                html.escape(
-                    definition[:62] + ("…" if len(definition) > 62 else "")
-                )
-                if definition
-                else "No definition"
-            )
+            short_def = html.escape(definition[:62] + ("…" if len(definition) > 62 else "")) if definition else "No definition"
             st.markdown(
                 f'<div class="friendly-primary">{friendly}</div><div class="friendly-secondary">{short_def}</div>',
                 unsafe_allow_html=True,
             )
         with cols[2]:
-            st.markdown(
-                f'<div class="cell-text">{esc(row.get("Category", "")) or "—"}</div>',
-                unsafe_allow_html=True,
-            )
+            st.markdown(f'<div class="cell-text">{esc(row.get("Category", "")) or "—"}</div>', unsafe_allow_html=True)
         with cols[3]:
-            st.markdown(
-                type_pill(row.get("Data Type", "")),
-                unsafe_allow_html=True,
-            )
+            st.markdown(type_pill(row.get("Data Type", "")), unsafe_allow_html=True)
         with cols[4]:
-            st.markdown(
-                status_pill(row.get("Status", "")),
-                unsafe_allow_html=True,
-            )
+            st.markdown(status_pill(row.get("Status", "")), unsafe_allow_html=True)
         with cols[5]:
-            st.markdown(
-                aws_pill(row.get("Send to AWS", "")),
-                unsafe_allow_html=True,
-            )
+            st.markdown(aws_pill(row.get("Send to AWS", "")), unsafe_allow_html=True)
         with cols[6]:
             owner_name = clean_text(row.get("Owner", "")) or "Unassigned"
             st.markdown(
@@ -827,18 +715,13 @@ else:
                 unsafe_allow_html=True,
             )
         with cols[7]:
-            st.markdown(
-                f'<div class="cell-text">{esc(row.get("Last Updated", "")) or "—"}</div>',
-                unsafe_allow_html=True,
-            )
+            st.markdown(f'<div class="cell-text">{esc(row.get("Last Updated", "")) or "—"}</div>', unsafe_allow_html=True)
 
 st.write("")
-page_info, prev_col, next_col = st.columns([6, .8, .8])
+page_info, prev_col, next_col = st.columns([5.5, 1.35, 1.05], gap="small")
 with page_info:
     if len(filtered):
-        st.caption(
-            f"Showing {start + 1}–{end} of {len(filtered)} variables · Page {page} of {total_pages}"
-        )
+        st.caption(f"Showing {start + 1}–{end} of {len(filtered)} variables · Page {page} of {total_pages}")
     else:
         st.caption("Showing 0 variables")
 with prev_col:
