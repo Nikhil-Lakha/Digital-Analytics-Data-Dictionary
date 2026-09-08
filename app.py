@@ -165,6 +165,36 @@ st.markdown(
     }
     div[data-testid="stDialog"] [data-testid="stForm"] {border:0; padding:0;}
 
+    /* Make Add/Edit form controls visibly editable against the glass background. */
+    div[data-testid="stDialog"] [data-testid="stTextInput"] input,
+    div[data-testid="stDialog"] [data-testid="stTextArea"] textarea {
+        border:1px solid #111827 !important;
+        border-radius:8px !important;
+        background:#ffffff !important;
+        box-shadow:none !important;
+    }
+    div[data-testid="stDialog"] [data-testid="stTextInput"] > div > div,
+    div[data-testid="stDialog"] [data-testid="stTextArea"] > div > div {
+        border-color:#111827 !important;
+        border-radius:8px !important;
+    }
+    div[data-testid="stDialog"] [data-baseweb="select"] > div {
+        border:1px solid #111827 !important;
+        border-radius:8px !important;
+        background:#ffffff !important;
+        box-shadow:none !important;
+    }
+    div[data-testid="stDialog"] [data-testid="stTextInput"] input:focus,
+    div[data-testid="stDialog"] [data-testid="stTextArea"] textarea:focus,
+    div[data-testid="stDialog"] [data-baseweb="select"] > div:focus-within {
+        border-color:#111827 !important;
+        box-shadow:0 0 0 1px #111827 !important;
+    }
+    div[data-testid="stDialog"] input:disabled {
+        border-color:#667085 !important;
+        background:#f2f4f7 !important;
+    }
+
     div[data-testid="stButton"] > button,
     div[data-testid="stDownloadButton"] > button {
         border-radius:10px;
