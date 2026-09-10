@@ -1,16 +1,16 @@
 import base64
-from io import BytesIO
+import csv
+from io import StringIO
 from pathlib import Path
 
 import requests
-from openpyxl import load_workbook
 
 REPO = "Nikhil-Lakha/Digital-Analytics-Data-Dictionary"
-FILE_PATH = "data/analytics_data_dictionary.xlsx"
+FILE_PATH = "data/analytics_data_dictionary.csv"
 BRANCH = "main"
 API_URL = f"https://api.github.com/repos/{REPO}/contents/{FILE_PATH}"
 RAW_URL = f"https://raw.githubusercontent.com/{REPO}/{BRANCH}/{FILE_PATH}"
-LOCAL_XLSX_PATH = Path(__file__).resolve().parents[1] / FILE_PATH
+LOCAL_CSV_PATH = Path(__file__).resolve().parents[1] / FILE_PATH
 
 
 def _headers(token: str | None = None) -> dict:
@@ -25,7 +25,7 @@ def _headers(token: str | None = None) -> dict:
 
 
 def fetch_workbook_bytes(token: str | None = None) -> bytes:
-    """Fetch the latest workbook from GitHub."""
+    """Fetch the latest CSV dictionary from GitHub."""
     if token:
         response = requests.get(API_URL, headers=_headers(token), params={"ref": BRANCH}, timeout=20)
         response.raise_for_status()
@@ -44,11 +44,11 @@ def _get_file_metadata(token: str) -> tuple[str, bytes]:
     return payload["sha"], base64.b64decode(payload["content"])
 
 
-def _commit_workbook(token: str, workbook_bytes: bytes, message: str) -> None:
+def _commit_csv(token: str, csv_bytes: bytes, message: str) -> None:
     sha, _ = _get_file_metadata(token)
     payload = {
         "message": message,
-        "content": base64.b64encode(workbook_bytes).decode("utf-8"),
+        "content": base64.b64encode(csv_bytes).decode("utf-8"),
         "sha": sha,
         "branch": BRANCH,
     }
@@ -56,98 +56,83 @@ def _commit_workbook(token: str, workbook_bytes: bytes, message: str) -> None:
     response.raise_for_status()
 
 
-def _load_for_write(token: str | None):
-    """Use GitHub when a token is supplied; otherwise use the local workbook for localhost testing."""
+def _load_rows(token: str | None):
+    """Load CSV rows from GitHub when a token is supplied; otherwise use the local CSV."""
     if token:
-        _, workbook_bytes = _get_file_metadata(token)
-        return load_workbook(BytesIO(workbook_bytes))
-
-    if not LOCAL_XLSX_PATH.exists():
-        raise FileNotFoundError(f"Local workbook was not found at {LOCAL_XLSX_PATH}")
-    return load_workbook(LOCAL_XLSX_PATH)
-
-
-def _save_after_write(token: str | None, wb, message: str) -> None:
-    if token:
-        output = BytesIO()
-        wb.save(output)
-        _commit_workbook(token, output.getvalue(), message)
+        _, csv_bytes = _get_file_metadata(token)
+        text = csv_bytes.decode("utf-8-sig")
     else:
-        LOCAL_XLSX_PATH.parent.mkdir(parents=True, exist_ok=True)
-        wb.save(LOCAL_XLSX_PATH)
+        if not LOCAL_CSV_PATH.exists():
+            raise FileNotFoundError(f"Local CSV was not found at {LOCAL_CSV_PATH}")
+        text = LOCAL_CSV_PATH.read_text(encoding="utf-8-sig")
+
+    reader = csv.DictReader(StringIO(text))
+    fieldnames = reader.fieldnames or []
+    rows = list(reader)
+    return fieldnames, rows
 
 
-def _headers_map(ws) -> dict[str, int]:
-    return {
-        str(cell.value).strip(): idx
-        for idx, cell in enumerate(ws[1], start=1)
-        if cell.value is not None
-    }
+def _save_rows(token: str | None, fieldnames: list[str], rows: list[dict], message: str) -> None:
+    output = StringIO(newline="")
+    writer = csv.DictWriter(output, fieldnames=fieldnames, extrasaction="ignore", lineterminator="\n")
+    writer.writeheader()
+    writer.writerows(rows)
+    csv_bytes = output.getvalue().encode("utf-8")
+
+    if token:
+        _commit_csv(token, csv_bytes, message)
+    else:
+        LOCAL_CSV_PATH.parent.mkdir(parents=True, exist_ok=True)
+        LOCAL_CSV_PATH.write_bytes(csv_bytes)
 
 
-def _find_variable_row(ws, variable_name: str) -> tuple[int, dict[str, int]]:
-    headers = _headers_map(ws)
-    variable_col = headers.get("Variable Name")
-    if not variable_col:
-        raise ValueError("Variable Name column is missing from the workbook.")
-
-    for row_idx in range(2, ws.max_row + 1):
-        value = ws.cell(row=row_idx, column=variable_col).value
-        if str(value).strip() == str(variable_name).strip():
-            return row_idx, headers
-
-    raise ValueError(f"Variable '{variable_name}' was not found in the workbook.")
+def _find_variable_index(rows: list[dict], variable_name: str) -> int:
+    target = str(variable_name).strip()
+    for idx, row in enumerate(rows):
+        if str(row.get("Variable Name", "")).strip() == target:
+            return idx
+    raise ValueError(f"Variable '{variable_name}' was not found in the CSV.")
 
 
 def create_variable(token: str | None, values: dict) -> None:
-    wb = _load_for_write(token)
-    ws = wb["Variables"]
-    headers = _headers_map(ws)
+    fieldnames, rows = _load_rows(token)
 
     variable_name = str(values.get("Variable Name", "")).strip()
     if not variable_name:
         raise ValueError("Variable Name is required.")
 
-    variable_col = headers.get("Variable Name")
-    for row_idx in range(2, ws.max_row + 1):
-        existing = ws.cell(row=row_idx, column=variable_col).value
-        if str(existing).strip().lower() == variable_name.lower():
+    for row in rows:
+        existing = str(row.get("Variable Name", "")).strip()
+        if existing.lower() == variable_name.lower():
             raise ValueError(f"Variable '{variable_name}' already exists.")
 
-    new_row = ws.max_row + 1
-    for field, col_idx in headers.items():
-        ws.cell(row=new_row, column=col_idx).value = values.get(field, "")
-
-    _save_after_write(token, wb, f"Add analytics variable: {variable_name}")
+    new_row = {field: values.get(field, "") for field in fieldnames}
+    rows.append(new_row)
+    _save_rows(token, fieldnames, rows, f"Add analytics variable: {variable_name}")
 
 
 def update_variable(token: str | None, original_variable_name: str, values: dict) -> None:
-    wb = _load_for_write(token)
-    ws = wb["Variables"]
-    row_idx, headers = _find_variable_row(ws, original_variable_name)
+    fieldnames, rows = _load_rows(token)
+    row_idx = _find_variable_index(rows, original_variable_name)
 
     new_variable_name = str(values.get("Variable Name", original_variable_name)).strip()
     if new_variable_name.lower() != str(original_variable_name).strip().lower():
-        variable_col = headers.get("Variable Name")
-        for check_row in range(2, ws.max_row + 1):
-            if check_row == row_idx:
+        for idx, row in enumerate(rows):
+            if idx == row_idx:
                 continue
-            existing = ws.cell(row=check_row, column=variable_col).value
-            if str(existing).strip().lower() == new_variable_name.lower():
+            existing = str(row.get("Variable Name", "")).strip()
+            if existing.lower() == new_variable_name.lower():
                 raise ValueError(f"Variable '{new_variable_name}' already exists.")
 
-    for field, value in values.items():
-        col_idx = headers.get(field)
-        if col_idx:
-            ws.cell(row=row_idx, column=col_idx).value = value
+    for field in fieldnames:
+        if field in values:
+            rows[row_idx][field] = values[field]
 
-    _save_after_write(token, wb, f"Update analytics variable: {original_variable_name}")
+    _save_rows(token, fieldnames, rows, f"Update analytics variable: {original_variable_name}")
 
 
 def delete_variable(token: str | None, variable_name: str) -> None:
-    wb = _load_for_write(token)
-    ws = wb["Variables"]
-    row_idx, _ = _find_variable_row(ws, variable_name)
-    ws.delete_rows(row_idx, 1)
-
-    _save_after_write(token, wb, f"Delete analytics variable: {variable_name}")
+    fieldnames, rows = _load_rows(token)
+    row_idx = _find_variable_index(rows, variable_name)
+    rows.pop(row_idx)
+    _save_rows(token, fieldnames, rows, f"Delete analytics variable: {variable_name}")
