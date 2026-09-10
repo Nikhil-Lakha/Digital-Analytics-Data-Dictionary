@@ -1,0 +1,39 @@
+name: Migrate Sent to AWS field
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - scripts/migrate_sent_to_aws.py
+      - .github/workflows/migrate-sent-to-aws.yml
+
+permissions:
+  contents: write
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Run migration
+        run: python scripts/migrate_sent_to_aws.py
+
+      - name: Commit migrated files
+        run: |
+          if git diff --quiet; then
+            echo "No migration changes required."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app.py utils/data_loader.py data/analytics_data_dictionary.csv
+          git commit -m "Rename Sent to AWS field and add filter"
+          git push
