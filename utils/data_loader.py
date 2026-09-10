@@ -11,7 +11,7 @@ CSV_PATH = DATA_DIR / "analytics_data_dictionary.csv"
 
 REQUIRED_COLUMNS = [
     "Variable Name", "Friendly Name", "Category", "Definition", "Data Type",
-    "Tealium Variable Name", "AWS Field Name", "Send to AWS", "Contains PII",
+    "Tealium Variable Name", "AWS Field Name", "Sent to AWS", "Contains PII",
     "Owner", "Status", "Journey"
 ]
 

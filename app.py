@@ -245,7 +245,7 @@ DROPDOWN_OPTIONS = {
         "Experimentation / A/B Testing",
     ],
     "Data Type": ["String", "Integer", "Decimal", "Boolean", "Date", "Datetime", "Array", "Object"],
-    "Send to AWS": ["Yes", "No"],
+    "Sent to AWS": ["Yes", "No"],
     "Contains PII": ["Yes", "No"],
     "Source System": [
         "Website", "Mobile App", "WebView", "Tealium", "Backend / API", "CRM",
@@ -268,13 +268,13 @@ AUTO_FIELDS = {"Date Added", "Last Updated"}
 REMOVED_FIELDS = {"PII Classification", "Deprecated Replacement", "Required", "Subcategory"}
 REQUIRED_FIELDS = [
     "Variable Name", "Friendly Name", "Category", "Definition", "Data Type",
-    "Tealium Variable Name", "Send to AWS", "Tealium Variable Type", "AWS Field Name",
+    "Tealium Variable Name", "Sent to AWS", "Tealium Variable Type", "AWS Field Name",
     "Owner", "Status",
 ]
 MAIN_FIELDS = ["Variable Name", "Friendly Name", "Category", "Definition", "Data Type", "Example Value"]
 DETAIL_FIELDS = [
     "Allowed Values", "Tealium Variable Type", "Tealium Variable Name", "AWS Field Name",
-    "Send to AWS", "Source System", "Journey",
+    "Sent to AWS", "Source System", "Journey",
 ]
 GOVERNANCE_FIELDS = ["Contains PII", "Owner", "Status", "Business Criticality", "Schema Version", "Notes"]
 
@@ -470,7 +470,7 @@ def initials(name):
 
 
 def clear_filters():
-    for key in ["filter_category", "filter_data_type", "filter_status", "filter_owner"]:
+    for key in ["filter_category", "filter_data_type", "filter_status", "filter_owner", "filter_sent_to_aws"]:
         if key in st.session_state:
             del st.session_state[key]
     st.session_state["registry_page"] = 1
@@ -612,6 +612,7 @@ with st.sidebar:
     data_type = st.multiselect("Data Type", unique_values(df, "Data Type"), key="filter_data_type")
     status = st.multiselect("Status", unique_values(df, "Status"), key="filter_status")
     owner = st.multiselect("Owner", unique_values(df, "Owner"), key="filter_owner")
+    sent_to_aws = st.multiselect("Sent to AWS", unique_values(df, "Sent to AWS"), key="filter_sent_to_aws")
     st.button("Reset all", use_container_width=True, on_click=clear_filters)
     st.markdown(
         '<div class="sidebar-footer"><strong>Schema v1.0</strong><br>Documentation layer only.<br>Tealium controls which variables are mapped and sent to AWS.</div>',
@@ -627,7 +628,7 @@ st.markdown(
 
 st.write("")
 missing_definitions = int(df["Definition"].fillna("").astype(str).str.strip().eq("").sum())
-aws_count = int(df["Send to AWS"].astype(str).str.lower().isin(["true", "yes", "1"]).sum())
+aws_count = int(df["Sent to AWS"].astype(str).str.lower().isin(["true", "yes", "1"]).sum())
 pii_count = int(df["Contains PII"].astype(str).str.lower().isin(["true", "yes", "1"]).sum())
 active_count = int(df["Status"].astype(str).str.lower().eq("active").sum())
 metrics = [
@@ -664,6 +665,7 @@ for column, selected in [
     ("Data Type", data_type),
     ("Status", status),
     ("Owner", owner),
+    ("Sent to AWS", sent_to_aws),
 ]:
     if selected:
         filtered = filtered[filtered[column].astype(str).isin(selected)]
@@ -709,7 +711,7 @@ page_frame = filtered.iloc[start:end]
 widths = [1.35, 1.8, 1.15, .85, .85, .8, 1.15, 1.0]
 headers = [
     "Variable Name", "Friendly Name", "Category", "Data Type",
-    "Status", "Send to AWS", "Owner", "Last Updated",
+    "Status", "Sent to AWS", "Owner", "Last Updated",
 ]
 for col, label in zip(st.columns(widths), headers):
     with col:
@@ -746,7 +748,7 @@ else:
         with cols[4]:
             st.markdown(status_pill(row.get("Status", "")), unsafe_allow_html=True)
         with cols[5]:
-            st.markdown(aws_pill(row.get("Send to AWS", "")), unsafe_allow_html=True)
+            st.markdown(aws_pill(row.get("Sent to AWS", "")), unsafe_allow_html=True)
         with cols[6]:
             owner_name = clean_text(row.get("Owner", "")) or "Unassigned"
             st.markdown(
