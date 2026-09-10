@@ -1,4 +1,4 @@
-from io import BytesIO
+from io import StringIO
 from pathlib import Path
 
 import pandas as pd
@@ -6,7 +6,6 @@ import pandas as pd
 from utils.github_store import fetch_workbook_bytes
 
 DATA_DIR = Path(__file__).resolve().parents[1] / "data"
-XLSX_PATH = DATA_DIR / "analytics_data_dictionary.xlsx"
 CSV_PATH = DATA_DIR / "analytics_data_dictionary.csv"
 
 REQUIRED_COLUMNS = [
@@ -17,29 +16,19 @@ REQUIRED_COLUMNS = [
 
 
 def load_dictionary(token: str | None = None) -> pd.DataFrame:
-    """Load local Excel during localhost testing; use GitHub as the source when a token is configured."""
+    """Load the analytics dictionary from GitHub CSV when a token is configured, otherwise use the local CSV."""
     df = None
 
-    if not token and XLSX_PATH.exists():
+    if token:
         try:
-            df = pd.read_excel(XLSX_PATH, sheet_name="Variables", engine="openpyxl")
+            csv_bytes = fetch_workbook_bytes(token)
+            df = pd.read_csv(StringIO(csv_bytes.decode("utf-8-sig")))
         except Exception:
             df = None
 
     if df is None:
-        try:
-            workbook_bytes = fetch_workbook_bytes(token)
-            df = pd.read_excel(BytesIO(workbook_bytes), sheet_name="Variables", engine="openpyxl")
-        except Exception:
-            if XLSX_PATH.exists():
-                try:
-                    df = pd.read_excel(XLSX_PATH, sheet_name="Variables", engine="openpyxl")
-                except Exception:
-                    df = None
-
-    if df is None:
         if not CSV_PATH.exists():
-            raise FileNotFoundError("No analytics dictionary source file was found.")
+            raise FileNotFoundError("No analytics dictionary CSV source file was found.")
         df = pd.read_csv(CSV_PATH)
 
     df.columns = [str(col).strip() for col in df.columns]
