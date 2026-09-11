@@ -472,6 +472,21 @@ def initials(name):
     return "".join(part[0].upper() for part in parts[:2])
 
 
+def get_selected_variables():
+    prefix = "select_var::"
+    return sorted(
+        key[len(prefix):]
+        for key, value in st.session_state.items()
+        if key.startswith(prefix) and value
+    )
+
+
+def clear_selected_variables():
+    for key in list(st.session_state.keys()):
+        if key.startswith("select_var::"):
+            del st.session_state[key]
+
+
 def clear_filters():
     for key in ["filter_category", "filter_data_type", "filter_status", "filter_owner", "filter_sent_to_aws"]:
         if key in st.session_state:
@@ -601,25 +616,19 @@ def variable_dialog(variable_name):
 
 
 @st.dialog("Change Sent to AWS")
-def bulk_aws_dialog(variable_names):
+def bulk_aws_dialog(variable_names, target_value):
     st.markdown(f"### Update {len(variable_names)} selected variable{'s' if len(variable_names) != 1 else ''}")
-    st.caption("Choose whether the selected variables should be marked as sent to AWS.")
+    st.caption(f"Set **Sent to AWS** to **{target_value}** for the selected variables.")
     if not require_admin("bulk_aws"):
         return
 
-    target_value = st.radio(
-        "Sent to AWS",
-        ["Yes", "No"],
-        horizontal=True,
-        key="bulk_aws_target",
-    )
     st.caption("Selected variables: " + ", ".join(variable_names))
 
     if st.button("Apply to selected variables", type="primary", use_container_width=True, key="bulk_aws_apply"):
         try:
             bulk_update_sent_to_aws(get_token() or None, variable_names, target_value)
             st.cache_data.clear()
-            st.session_state["bulk_variable_selection"] = []
+            clear_selected_variables()
             st.rerun()
         except Exception as exc:
             st.error(f"Could not update selected variables: {exc}")
@@ -647,7 +656,7 @@ def bulk_delete_dialog(variable_names):
         try:
             bulk_delete_variables(get_token() or None, variable_names)
             st.cache_data.clear()
-            st.session_state["bulk_variable_selection"] = []
+            clear_selected_variables()
             st.rerun()
         except Exception as exc:
             st.error(f"Could not delete selected variables: {exc}")
@@ -741,37 +750,31 @@ with add_col:
         add_variable_dialog()
 
 
-st.markdown('<div class="search-label">Bulk actions</div>', unsafe_allow_html=True)
-bulk_options = filtered["Variable Name"].astype(str).tolist()
-selected_variables = st.multiselect(
-    "Select variables",
-    options=bulk_options,
-    key="bulk_variable_selection",
-    placeholder="Select one or more variables...",
-    label_visibility="collapsed",
-)
-bulk_left, bulk_aws_col, bulk_delete_col = st.columns([3.6, 1.4, 1.35], gap="small")
-with bulk_left:
-    if selected_variables:
+selected_variables = get_selected_variables()
+if selected_variables:
+    st.markdown('<div class="search-label">Selected variable actions</div>', unsafe_allow_html=True)
+    selected_info, aws_value_col, apply_col, delete_col, clear_col = st.columns(
+        [2.8, 1.25, .9, 1.2, 1.05], gap="small"
+    )
+    with selected_info:
         st.caption(f"{len(selected_variables)} variable{'s' if len(selected_variables) != 1 else ''} selected")
-    else:
-        st.caption("Select multiple variables to update Sent to AWS or delete them.")
-with bulk_aws_col:
-    if st.button(
-        "Change Sent to AWS",
-        use_container_width=True,
-        disabled=not selected_variables,
-        key="bulk_aws_button",
-    ):
-        bulk_aws_dialog(selected_variables)
-with bulk_delete_col:
-    if st.button(
-        "Delete Selected",
-        use_container_width=True,
-        disabled=not selected_variables,
-        key="bulk_delete_button",
-    ):
-        bulk_delete_dialog(selected_variables)
+    with aws_value_col:
+        bulk_aws_value = st.selectbox(
+            "Sent to AWS",
+            ["Yes", "No"],
+            key="bulk_aws_value",
+            label_visibility="collapsed",
+        )
+    with apply_col:
+        if st.button("Apply", type="primary", use_container_width=True, key="bulk_aws_button"):
+            bulk_aws_dialog(selected_variables, bulk_aws_value)
+    with delete_col:
+        if st.button("Delete selected", use_container_width=True, key="bulk_delete_button"):
+            bulk_delete_dialog(selected_variables)
+    with clear_col:
+        if st.button("Clear", use_container_width=True, key="bulk_clear_button"):
+            clear_selected_variables()
+            st.rerun()
 
 st.markdown('<div class="registry-shell">', unsafe_allow_html=True)
 reg_left, reg_right = st.columns([5, 1])
@@ -797,9 +800,9 @@ start = (page - 1) * page_size
 end = min(start + page_size, len(filtered))
 page_frame = filtered.iloc[start:end]
 
-widths = [1.35, 1.8, 1.15, .85, .85, .8, 1.15, 1.0]
+widths = [.34, 1.35, 1.8, 1.15, .85, .85, .8, 1.15, 1.0]
 headers = [
-    "Variable Name", "Friendly Name", "Category", "Data Type",
+    "", "Variable Name", "Friendly Name", "Category", "Data Type",
     "Status", "Sent to AWS", "Owner", "Last Updated",
 ]
 for col, label in zip(st.columns(widths), headers):
@@ -819,10 +822,16 @@ else:
         row_key = f"{idx}_{variable_name}"
         cols = st.columns(widths)
         with cols[0]:
+            st.checkbox(
+                "Select",
+                key=f"select_var::{variable_name}",
+                label_visibility="collapsed",
+            )
+        with cols[1]:
             if st.button(variable_name or "Unnamed", key=f"open_{row_key}", type="tertiary"):
                 st.session_state[f"variable_dialog_mode_{variable_name}"] = "view"
                 variable_dialog(variable_name)
-        with cols[1]:
+        with cols[2]:
             friendly = esc(row.get("Friendly Name", "")) or "—"
             definition = clean_text(row.get("Definition", ""))
             short_def = html.escape(definition[:62] + ("…" if len(definition) > 62 else "")) if definition else "No definition"
@@ -830,21 +839,21 @@ else:
                 f'<div class="friendly-primary">{friendly}</div><div class="friendly-secondary">{short_def}</div>',
                 unsafe_allow_html=True,
             )
-        with cols[2]:
-            st.markdown(f'<div class="cell-text">{esc(row.get("Category", "")) or "—"}</div>', unsafe_allow_html=True)
         with cols[3]:
-            st.markdown(type_pill(row.get("Data Type", "")), unsafe_allow_html=True)
+            st.markdown(f'<div class="cell-text">{esc(row.get("Category", "")) or "—"}</div>', unsafe_allow_html=True)
         with cols[4]:
-            st.markdown(status_pill(row.get("Status", "")), unsafe_allow_html=True)
+            st.markdown(type_pill(row.get("Data Type", "")), unsafe_allow_html=True)
         with cols[5]:
-            st.markdown(aws_pill(row.get("Sent to AWS", "")), unsafe_allow_html=True)
+            st.markdown(status_pill(row.get("Status", "")), unsafe_allow_html=True)
         with cols[6]:
+            st.markdown(aws_pill(row.get("Sent to AWS", "")), unsafe_allow_html=True)
+        with cols[7]:
             owner_name = clean_text(row.get("Owner", "")) or "Unassigned"
             st.markdown(
                 f'<div class="owner-wrap"><div class="owner-avatar">{html.escape(initials(owner_name))}</div><div class="owner-name">{html.escape(owner_name)}</div></div>',
                 unsafe_allow_html=True,
             )
-        with cols[7]:
+        with cols[8]:
             st.markdown(f'<div class="cell-text">{esc(row.get("Last Updated", "")) or "—"}</div>', unsafe_allow_html=True)
 
 st.write("")
