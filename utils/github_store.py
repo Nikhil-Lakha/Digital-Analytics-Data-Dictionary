@@ -1,5 +1,6 @@
 import base64
 import csv
+from datetime import date
 from io import StringIO
 from pathlib import Path
 
@@ -136,3 +137,68 @@ def delete_variable(token: str | None, variable_name: str) -> None:
     row_idx = _find_variable_index(rows, variable_name)
     rows.pop(row_idx)
     _save_rows(token, fieldnames, rows, f"Delete analytics variable: {variable_name}")
+
+
+def bulk_update_sent_to_aws(token: str | None, variable_names: list[str], sent_value: str) -> None:
+    """Set Sent to AWS for multiple variables and save them in a single commit."""
+    value = str(sent_value).strip().title()
+    if value not in {"Yes", "No"}:
+        raise ValueError("Sent to AWS must be either Yes or No.")
+
+    selected = {str(name).strip() for name in variable_names if str(name).strip()}
+    if not selected:
+        raise ValueError("Select at least one variable.")
+
+    fieldnames, rows = _load_rows(token)
+    if "Sent to AWS" not in fieldnames:
+        raise ValueError("Sent to AWS column is missing from the CSV.")
+
+    found = set()
+    today = date.today().isoformat()
+    for row in rows:
+        variable_name = str(row.get("Variable Name", "")).strip()
+        if variable_name in selected:
+            row["Sent to AWS"] = value
+            if "Last Updated" in fieldnames:
+                row["Last Updated"] = today
+            found.add(variable_name)
+
+    missing = selected - found
+    if missing:
+        raise ValueError(f"Could not find variables: {', '.join(sorted(missing))}")
+
+    _save_rows(
+        token,
+        fieldnames,
+        rows,
+        f"Bulk set Sent to AWS = {value} for {len(selected)} variables",
+    )
+
+
+def bulk_delete_variables(token: str | None, variable_names: list[str]) -> None:
+    """Delete multiple variables and save the result in a single commit."""
+    selected = {str(name).strip() for name in variable_names if str(name).strip()}
+    if not selected:
+        raise ValueError("Select at least one variable.")
+
+    fieldnames, rows = _load_rows(token)
+    existing = {
+        str(row.get("Variable Name", "")).strip()
+        for row in rows
+        if str(row.get("Variable Name", "")).strip()
+    }
+    missing = selected - existing
+    if missing:
+        raise ValueError(f"Could not find variables: {', '.join(sorted(missing))}")
+
+    remaining_rows = [
+        row for row in rows
+        if str(row.get("Variable Name", "")).strip() not in selected
+    ]
+
+    _save_rows(
+        token,
+        fieldnames,
+        remaining_rows,
+        f"Bulk delete {len(selected)} analytics variables",
+    )
