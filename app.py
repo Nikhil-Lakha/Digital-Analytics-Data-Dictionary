@@ -6,7 +6,7 @@ import pandas as pd
 import streamlit as st
 
 from utils.data_loader import load_dictionary, unique_values
-from utils.github_store import create_variable, delete_variable, update_variable
+from utils.github_store import (\n    bulk_delete_variables, bulk_update_sent_to_aws, create_variable,\n    delete_variable, update_variable,\n)
 
 st.set_page_config(
     page_title="Digital Analytics Data Dictionary",
@@ -489,7 +489,7 @@ def add_variable_dialog():
     if not require_admin("add"):
         return
     if not get_token():
-        st.info("Local test mode: Save updates your local Excel workbook only.")
+        st.info("Local test mode: Save updates your local CSV file only.")
     with st.form("add_variable_form"):
         values = build_variable_form(df, prefix="add")
         _, action = st.columns([3.4, 1])
@@ -597,6 +597,59 @@ def variable_dialog(variable_name):
             st.rerun(scope="fragment")
 
 
+@st.dialog("Change Sent to AWS")
+def bulk_aws_dialog(variable_names):
+    st.markdown(f"### Update {len(variable_names)} selected variable{'s' if len(variable_names) != 1 else ''}")
+    st.caption("Choose whether the selected variables should be marked as sent to AWS.")
+    if not require_admin("bulk_aws"):
+        return
+
+    target_value = st.radio(
+        "Sent to AWS",
+        ["Yes", "No"],
+        horizontal=True,
+        key="bulk_aws_target",
+    )
+    st.caption("Selected variables: " + ", ".join(variable_names))
+
+    if st.button("Apply to selected variables", type="primary", use_container_width=True, key="bulk_aws_apply"):
+        try:
+            bulk_update_sent_to_aws(get_token() or None, variable_names, target_value)
+            st.cache_data.clear()
+            st.session_state["bulk_variable_selection"] = []
+            st.rerun()
+        except Exception as exc:
+            st.error(f"Could not update selected variables: {exc}")
+
+
+@st.dialog("Delete Selected Variables")
+def bulk_delete_dialog(variable_names):
+    st.markdown(f"### Delete {len(variable_names)} selected variable{'s' if len(variable_names) != 1 else ''}")
+    st.warning("This action permanently removes all selected variable records.")
+    st.caption("Selected variables: " + ", ".join(variable_names))
+    if not require_admin("bulk_delete"):
+        return
+
+    confirm = st.checkbox(
+        "I understand that all selected variables will be permanently deleted.",
+        key="bulk_delete_confirm",
+    )
+    if st.button(
+        "Delete selected variables",
+        type="primary",
+        use_container_width=True,
+        disabled=not confirm,
+        key="bulk_delete_apply",
+    ):
+        try:
+            bulk_delete_variables(get_token() or None, variable_names)
+            st.cache_data.clear()
+            st.session_state["bulk_variable_selection"] = []
+            st.rerun()
+        except Exception as exc:
+            st.error(f"Could not delete selected variables: {exc}")
+
+
 with st.sidebar:
     st.markdown(
         '<div class="brand-row"><div class="brand-mark">V</div><div class="brand-name">vodafone</div></div>',
@@ -683,6 +736,39 @@ with export_col:
 with add_col:
     if st.button("＋ Add Variable", type="primary", use_container_width=True):
         add_variable_dialog()
+
+
+st.markdown('<div class="search-label">Bulk actions</div>', unsafe_allow_html=True)
+bulk_options = filtered["Variable Name"].astype(str).tolist()
+selected_variables = st.multiselect(
+    "Select variables",
+    options=bulk_options,
+    key="bulk_variable_selection",
+    placeholder="Select one or more variables...",
+    label_visibility="collapsed",
+)
+bulk_left, bulk_aws_col, bulk_delete_col = st.columns([3.6, 1.4, 1.35], gap="small")
+with bulk_left:
+    if selected_variables:
+        st.caption(f"{len(selected_variables)} variable{'s' if len(selected_variables) != 1 else ''} selected")
+    else:
+        st.caption("Select multiple variables to update Sent to AWS or delete them.")
+with bulk_aws_col:
+    if st.button(
+        "Change Sent to AWS",
+        use_container_width=True,
+        disabled=not selected_variables,
+        key="bulk_aws_button",
+    ):
+        bulk_aws_dialog(selected_variables)
+with bulk_delete_col:
+    if st.button(
+        "Delete Selected",
+        use_container_width=True,
+        disabled=not selected_variables,
+        key="bulk_delete_button",
+    ):
+        bulk_delete_dialog(selected_variables)
 
 st.markdown('<div class="registry-shell">', unsafe_allow_html=True)
 reg_left, reg_right = st.columns([5, 1])
