@@ -6,7 +6,10 @@ import pandas as pd
 import streamlit as st
 
 from utils.data_loader import load_dictionary, unique_values
-from utils.github_store import (\n    bulk_delete_variables, bulk_update_sent_to_aws, create_variable,\n    delete_variable, update_variable,\n)
+from utils.github_store import (
+    bulk_delete_variables, bulk_update_sent_to_aws, create_variable,
+    delete_variable, update_variable,
+)
 
 st.set_page_config(
     page_title="Digital Analytics Data Dictionary",
